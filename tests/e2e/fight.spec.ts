@@ -11,12 +11,15 @@ import {
   waitForPrompt,
 } from './helpers';
 
+/** 1x canvas: much cheaper in headless software rendering, so slow CI runners stay in real time. */
+const FAST = '?e2e=1&rs=1';
+
 test('Challenge on a section starts the fight, and a punch combo lowers the dummy CGPA', async ({
   page,
 }, info) => {
   test.skip(info.project.name === 'mobile', 'keyboard path runs on desktop');
   const problems = collectProblems(page);
-  await startFightWithKeyboard(page);
+  await startFightWithKeyboard(page, FAST);
   expect(await fightNum(page, 'player-hp')).toBe(100);
   expect(await fightNum(page, 'enemy-hp')).toBe(100);
   await closeIn(page);
@@ -35,7 +38,7 @@ test('dodge costs stamina; holding block against the dummy only takes chip damag
   page,
 }, info) => {
   test.skip(info.project.name === 'mobile', 'keyboard path runs on desktop');
-  await startFightWithKeyboard(page);
+  await startFightWithKeyboard(page, FAST);
 
   await page.keyboard.press('Space');
   await expect.poll(() => fightNum(page, 'stamina')).toBeLessThanOrEqual(75);
@@ -47,16 +50,15 @@ test('dodge costs stamina; holding block against the dummy only takes chip damag
   await expect.poll(() => attr(page, 'data-fight-dummy')).toBe('attack');
 
   await page.keyboard.down('l');
-  await page.waitForTimeout(7000);
+  // However slow the machine, wait for the dummy to walk up and land its first blocked hit.
+  await expect.poll(() => fightNum(page, 'player-hp'), { timeout: 90_000 }).toBeLessThan(100);
   await page.keyboard.up('l');
-  const hp = await fightNum(page, 'player-hp');
-  expect(hp).toBeLessThan(100); // it did hit the block
-  expect(hp).toBeGreaterThan(80); // but only chip damage got through
+  expect(await fightNum(page, 'player-hp')).toBeGreaterThan(90); // only chip damage got through
 });
 
 test('the pause menu stops the fight, resumes, and returns to the map', async ({ page }, info) => {
   test.skip(info.project.name === 'mobile', 'keyboard path runs on desktop');
-  await startFightWithKeyboard(page);
+  await startFightWithKeyboard(page, FAST);
 
   await page.keyboard.press('Escape');
   await expect.poll(() => attr(page, 'data-fight-paused')).toBe('true');
@@ -87,7 +89,7 @@ test('debug fight tools: hitbox panel loads lazily, +Meter then LITE LO spends t
   test.skip(info.project.name === 'mobile', 'keyboard path runs on desktop');
   const requested: string[] = [];
   page.on('request', (r) => requested.push(r.url()));
-  await startFightWithKeyboard(page, '?debug=1');
+  await startFightWithKeyboard(page, '?debug=1&rs=1');
   await expect(page.locator('#dbg-fight')).toBeVisible();
   expect(requested.some((u) => u.includes('fightDebug'))).toBe(true);
 
@@ -102,7 +104,7 @@ test('normal play never downloads the fight debug panel', async ({ page }, info)
   test.skip(info.project.name === 'mobile', 'keyboard path runs on desktop');
   const requested: string[] = [];
   page.on('request', (r) => requested.push(r.url()));
-  await startFightWithKeyboard(page);
+  await startFightWithKeyboard(page, FAST);
   expect(requested.filter((u) => u.includes('fightDebug'))).toEqual([]);
   await expect(page.locator('#dbg-fight')).toHaveCount(0);
 });
@@ -112,7 +114,7 @@ test('touch: the round Attack button punches, and the Dodge button spends stamin
 }, info) => {
   test.skip(info.project.name !== 'mobile', 'touch path runs on the phone viewport');
   const problems = collectProblems(page);
-  await startGame(page);
+  await startGame(page, FAST);
 
   // Walk right with the joystick until the Academic Building prompt, then tap Challenge.
   const finger = await Finger.create(page);
@@ -134,7 +136,7 @@ test('touch: the round Attack button punches, and the Dodge button spends stamin
       return Number(d['fightEnemyX']) - Number(d['fightPlayerX']) < 105;
     },
     undefined,
-    { polling: 'raf', timeout: 30_000 },
+    { polling: 'raf', timeout: 60_000 },
   );
   await finger.send('touchEnd', 180, 300);
   await finger.detach();

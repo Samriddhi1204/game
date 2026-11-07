@@ -128,7 +128,7 @@ export async function closeIn(page: Page): Promise<void> {
       return Number(d['fightEnemyX']) - Number(d['fightPlayerX']) < 100;
     },
     undefined,
-    { polling: 'raf', timeout: 20_000 },
+    { polling: 'raf', timeout: 60_000 },
   );
   await page.keyboard.up('d');
 }
