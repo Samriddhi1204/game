@@ -47,6 +47,9 @@ export class InputManager {
     special: false,
   };
   private readonly pointerHold = new Map<number, HoldAction>();
+  /** Key presses seen since the last update, so a tap shorter than a frame is not lost. */
+  private readonly kbPulse: Record<string, boolean> = {};
+  private readonly keyNames: string[] = [];
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -58,7 +61,12 @@ export class InputManager {
     const kb = scene.input.keyboard;
     if (kb) {
       const add = (name: string, code: string): void => {
-        this.keys[name] = kb.addKey(code, true);
+        const key = kb.addKey(code, true);
+        this.keys[name] = key;
+        this.keyNames.push(name);
+        key.on(Phaser.Input.Keyboard.Events.DOWN, () => {
+          this.kbPulse[name] = true;
+        });
       };
       add('w', 'W');
       add('a', 'A');
@@ -89,17 +97,19 @@ export class InputManager {
   /** Call once at the start of each frame (later: each fixed sim step). */
   update(): void {
     const s = this.state;
+    const down = (name: string): boolean =>
+      this.keys[name]?.isDown === true || this.kbPulse[name] === true;
     if (!this.enabled) {
       s.moveX = 0;
       s.moveY = 0;
       s.interact = false;
-      s.pause = this.keys['pause']?.isDown === true;
+      s.pause = down('pause');
+      this.clearKeyPulses();
       this.interactPressed = false;
       this.prevInteract = false;
       this.touchInteract = false;
       return;
     }
-    const down = (name: string): boolean => this.keys[name]?.isDown === true;
     let mx = (down('d') || down('right') ? 1 : 0) - (down('a') || down('left') ? 1 : 0);
     let my = (down('s') || down('down') ? 1 : 0) - (down('w') || down('up') ? 1 : 0);
     mx += this.stick.moveX;
@@ -120,6 +130,14 @@ export class InputManager {
     this.touchInteract = false;
     this.interactPressed = s.interact && !this.prevInteract;
     this.prevInteract = s.interact;
+    this.clearKeyPulses();
+  }
+
+  private clearKeyPulses(): void {
+    for (let i = 0; i < this.keyNames.length; i++) {
+      const name = this.keyNames[i];
+      if (name !== undefined) this.kbPulse[name] = false;
+    }
   }
 
   destroy(): void {
