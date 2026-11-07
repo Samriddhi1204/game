@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import mapUrl from '../../../assets/map.webp?url';
-import { FONT, GAME_HEIGHT, GAME_WIDTH } from '../config';
+import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { setSceneLabel } from '../dom';
+import { addText, setView } from '../gfx';
 
 export const MAP_TEXTURE = 'map';
 
@@ -12,14 +13,13 @@ export class PreloadScene extends Phaser.Scene {
 
   preload(): void {
     setSceneLabel('Preload');
+    setView(this.cameras.main, 0, 0);
     delete document.documentElement.dataset['loadError'];
 
     const cx = GAME_WIDTH / 2;
     const cy = GAME_HEIGHT / 2;
     const barW = 400;
-    this.add
-      .text(cx, cy - 40, 'Loading…', { fontFamily: FONT, fontSize: '28px', color: '#f2f2f2' })
-      .setOrigin(0.5);
+    addText(this, cx, cy - 40, 'Loading…', { fontSize: '28px', color: '#f2f2f2' }).setOrigin(0.5);
     this.add.rectangle(cx, cy, barW, 16, 0x3a4655);
     const fill = this.add.rectangle(cx - barW / 2, cy, barW, 16, 0xf2c14e).setOrigin(0, 0.5);
     fill.scaleX = 0;
@@ -44,21 +44,16 @@ export class PreloadScene extends Phaser.Scene {
     this.load.reset();
 
     const cx = GAME_WIDTH / 2;
-    this.add
-      .text(cx, GAME_HEIGHT / 2 + 50, 'Load nahi hua. Network check karo.', {
-        fontFamily: FONT,
-        fontSize: '22px',
-        color: '#ff8a80',
-      })
-      .setOrigin(0.5);
-    const retry = this.add
-      .text(cx, GAME_HEIGHT / 2 + 110, '  Retry  ', {
-        fontFamily: FONT,
-        fontSize: '28px',
-        color: '#1a1a1a',
-        backgroundColor: '#f2c14e',
-        padding: { x: 20, y: 12 },
-      })
+    addText(this, cx, GAME_HEIGHT / 2 + 50, 'Load nahi hua. Network check karo.', {
+      fontSize: '22px',
+      color: '#ff8a80',
+    }).setOrigin(0.5);
+    const retry = addText(this, cx, GAME_HEIGHT / 2 + 110, '  Retry  ', {
+      fontSize: '28px',
+      color: '#1a1a1a',
+      backgroundColor: '#f2c14e',
+      padding: { x: 20, y: 12 },
+    })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
     retry.once('pointerdown', () => {

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BG_COLOR, GAME_HEIGHT, GAME_WIDTH } from './game/config';
+import { BG_COLOR, GAME_HEIGHT, GAME_WIDTH, RENDER_SCALE } from './game/config';
 import { installErrorHandlers, watchWebGLContext } from './game/errors';
 import { watchOrientation } from './game/portrait';
 import { BootScene } from './game/scenes/BootScene';
@@ -14,8 +14,8 @@ installErrorHandlers(() => game);
 game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: GAME_WIDTH,
-  height: GAME_HEIGHT,
+  width: GAME_WIDTH * RENDER_SCALE,
+  height: GAME_HEIGHT * RENDER_SCALE,
   backgroundColor: BG_COLOR,
   banner: false,
   disableContextMenu: true,
@@ -23,8 +23,8 @@ game = new Phaser.Game({
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: GAME_WIDTH,
-    height: GAME_HEIGHT,
+    width: GAME_WIDTH * RENDER_SCALE,
+    height: GAME_HEIGHT * RENDER_SCALE,
   },
   scene: [BootScene, PreloadScene, TapToStartScene, MapScene, ErrorScene],
 });

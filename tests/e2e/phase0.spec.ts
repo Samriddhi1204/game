@@ -1,18 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-
-/** Only this message is ignored. Everything else (including warnings) is fatal. */
-const IGNORED = 'GL Driver Message';
-
-function collectProblems(page: Page): string[] {
-  const problems: string[] = [];
-  page.on('console', (msg) => {
-    if (msg.type() !== 'error' && msg.type() !== 'warning') return;
-    if (msg.text().includes(IGNORED)) return;
-    problems.push(`${msg.type()}: ${msg.text()}`);
-  });
-  page.on('pageerror', (err) => problems.push(`pageerror: ${err.message}`));
-  return problems;
-}
+import { collectProblems } from './helpers';
 
 const scene = (page: Page) => page.locator('html').getAttribute('data-scene');
 

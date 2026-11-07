@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { FONT, GAME_HEIGHT, GAME_WIDTH } from '../config';
+import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { setSceneLabel } from '../dom';
+import { addText, setView } from '../gfx';
 
 export class TapToStartScene extends Phaser.Scene {
   private started = false;
@@ -11,23 +12,18 @@ export class TapToStartScene extends Phaser.Scene {
 
   create(): void {
     setSceneLabel('TapToStart');
+    setView(this.cameras.main, 0, 0);
     this.started = false;
     const cx = GAME_WIDTH / 2;
-    this.add
-      .text(cx, GAME_HEIGHT / 2 - 40, 'MNNIT Conquest', {
-        fontFamily: FONT,
-        fontSize: '56px',
-        fontStyle: 'bold',
-        color: '#f2c14e',
-      })
-      .setOrigin(0.5);
-    const prompt = this.add
-      .text(cx, GAME_HEIGHT / 2 + 50, 'Tap to start', {
-        fontFamily: FONT,
-        fontSize: '28px',
-        color: '#f2f2f2',
-      })
-      .setOrigin(0.5);
+    addText(this, cx, GAME_HEIGHT / 2 - 40, 'MNNIT Conquest', {
+      fontSize: '56px',
+      fontStyle: 'bold',
+      color: '#f2c14e',
+    }).setOrigin(0.5);
+    const prompt = addText(this, cx, GAME_HEIGHT / 2 + 50, 'Tap to start', {
+      fontSize: '28px',
+      color: '#f2f2f2',
+    }).setOrigin(0.5);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
 
     this.input.once(Phaser.Input.Events.POINTER_DOWN, () => {

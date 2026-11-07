@@ -1,4 +1,4 @@
-# MNNIT Conquest — Build Spec v2
+# MNNIT Conquest — Build Spec v2.1
 
 > **For the coding assistant:** This file is the source of truth. Read all of it before writing any code. If something here conflicts with what you would normally do, follow this file and tell me. Work one phase at a time (section 20) and stop after each phase.
 
@@ -9,6 +9,7 @@ A small, funny, timepass browser game set on the MNNIT campus. You play a fucchh
 ## 1. Goals, in priority order
 
 1. **Loads fast, runs smooth, easy to play.** Steady 60 fps on a mid-range Android phone. Playable within 3 seconds on 4G. Controls a non-gamer understands in 10 seconds.
+   - **Phone-first quality (mandatory rule, added in v2.1).** The map and every screen must be interactive, smooth and high quality on a phone browser as well as on desktop. Concretely: crisp rendering at device resolution (text and map edges never look blurry on a hi-dpi phone); touch input that responds on the first frame of a touch; no dropped frames while walking or panning; touch targets at least 48 css px (80 logical px for the main action buttons); nothing hidden under a notch, home bar or browser bar; and no feature that only works with a mouse or keyboard. A change that makes the phone experience worse is a bug, even if desktop looks fine.
 2. **Funny.** The jokes are the product. Every screen a player sees often (fights, loss screen, map encounters) carries jokes, and joke text always comes from rotating pools so it doesn't repeat.
 3. **Robust.** No crashes, no soft-locks, no corrupted saves. Every failure path has a defined behaviour.
 4. **Small and finished.** Build exactly what is specified. Content (lines, names, numbers) lives in JSON so I can edit it without touching code.
@@ -63,7 +64,7 @@ Rules:
 ## 5. Display, platforms, controls
 
 - **Targets:** Chrome Android and Safari iOS in landscape, plus desktop browsers.
-- **Resolution:** fixed internal 960x540, Phaser scale mode FIT, centred, letterboxed.
+- **Resolution:** fixed **logical** size 960x540, Phaser scale mode FIT, centred, letterboxed. All layout and game coordinates use logical units. The backing canvas is `RENDER_SCALE` times larger (1 or 2, chosen from `devicePixelRatio` and window size; `?rs=1` or `?rs=2` overrides it) so text and map edges stay sharp on hi-dpi phones. Text is rasterised at that scale. If 2x costs frames on a weak phone, report the measured numbers and lower the default instead of accepting a blurry or choppy game.
 - **Portrait:** "Rotate your phone" overlay; pause until landscape.
 - **Page setup:** viewport meta with `viewport-fit=cover`, no user scaling; `touch-action: none`; disable text selection, long-press callouts, context menu, pull-to-refresh, double-tap zoom, and page scroll. Keep touch UI inside safe-area insets.
 - **Tap to start** screen after loading (unlocks audio on mobile).
@@ -273,7 +274,7 @@ The Director reuses existing attack definitions by id; no new archetypes.
 - Check `maxTextureSize` at runtime; show a clear error if the map exceeds it.
 - **Movement:** 220 px/s default, delta-time based, delta clamped, diagonals normalised, joystick magnitude scales speed.
 - **Collision:** player feet-box 24x16. Static obstacles are rectangles in `data/collision.json`. Axis-separated AABB (x then y), no physics engine, no tunnelling, no corner sticking. Unit-tested in core.
-- **Camera:** follows the player, clamped to world bounds, `MAP_ZOOM` constant (default 1.0), light smoothing, rounded positions.
+- **Camera:** follows the player, clamped to world bounds, `MAP_ZOOM` constant (default 1.0), light smoothing, positions rounded to the device-pixel grid so the map never shimmers. The map and the UI use separate cameras, so `MAP_ZOOM` never scales the UI.
 - **Hotspots** (`data/hotspots.json`): point + radius. Entering shows the context button once; must leave the radius before it triggers again. Locked hotspots show "Locked" + a hint. Conquered sections show "Conquered" (no re-fight in v1).
 - **Labels:** section names drawn by the game over the map.
 - **NPCs** on the map are placeholder coloured circles with name labels; positions in `hotspots.json`.
@@ -361,7 +362,7 @@ All content is JSON in `src/data` with typed loaders: `sections.json`, `fighters
 - `map.webp` ≤ 600 KB (provided file is ~140 KB). Sprites in atlases. Audio compressed, loaded after the game starts.
 - Lazy-load fight assets when entering a fight; show a loading bar only for the initial load.
 - **No allocations in update loops.** Pools for projectiles, effects, floating text. No per-frame arrays/objects/closures/string building in hot paths.
-- Render at 960x540 only. Cheap effects only.
+- Lay out at 960x540 logical units; the backing canvas is `RENDER_SCALE` (1 or 2) times that for crispness. Cheap effects only. Re-measure fps whenever `RENDER_SCALE` or a full-screen effect changes.
 - Pause game and audio when the tab is hidden.
 - Hashed filenames for caching. No service worker in v1.
 - `scripts/check-size-budget` fails CI if limits are exceeded.

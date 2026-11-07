@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import { showFatalPanel } from './dom';
+import { UserFacingError } from './userError';
 
 let handling = false;
 
@@ -19,7 +20,7 @@ function fail(game: Phaser.Game | null, err: unknown): void {
   }
   try {
     for (const scene of game.scene.getScenes(true)) game.scene.stop(scene.scene.key);
-    game.scene.start('Error');
+    game.scene.start('Error', err instanceof UserFacingError ? { message: err.message } : {});
     // If the scene can't start (renderer gone), the label won't change.
     window.setTimeout(() => {
       if (document.documentElement.dataset['scene'] !== 'Error') showFatalPanel();

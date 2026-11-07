@@ -49,6 +49,20 @@ if (!mapFile) {
 }
 const mapBytes = statSync(join(assetsDir, mapFile)).size;
 
+// The debug editor must stay out of the initial bundle (it is lazy-loaded with ?debug=1).
+const leaked = [...jsRefs].filter((ref) =>
+  readFileSync(resolve(ref), 'utf8').includes('MAP_EDITOR_MARKER'),
+);
+
+// ...and it must really exist as its own chunk, otherwise the check above proves nothing.
+const lazyChunk = readdirSync(join(dist, 'assets')).find(
+  (f) =>
+    f.endsWith('.js') &&
+    !jsRefs.has(`./assets/${f}`) &&
+    !jsRefs.has(`/assets/${f}`) &&
+    readFileSync(join(dist, 'assets', f), 'utf8').includes('MAP_EDITOR_MARKER'),
+);
+
 const transfer = htmlGzip + jsGzip + cssGzip + mapBytes;
 const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
 console.log(`Initial JS (gzip):  ${kb(jsGzip)}  (limit ${kb(LIMITS.initialJsGzip)})`);
@@ -59,8 +73,12 @@ const failures = [];
 if (jsGzip > LIMITS.initialJsGzip) failures.push('initial JS over budget');
 if (transfer > LIMITS.initialTransfer) failures.push('initial transfer over budget');
 if (mapBytes > LIMITS.map) failures.push('map over budget');
+if (!lazyChunk) failures.push('debug editor chunk not found (marker missing from lazy chunk)');
+if (leaked.length > 0)
+  failures.push(`debug editor leaked into the initial bundle (${leaked.join(', ')})`);
 if (failures.length > 0) {
   console.error(`FAIL: ${failures.join(', ')}`);
   process.exit(1);
 }
+console.log(`Debug editor is lazy-loaded (${lazyChunk}).`);
 console.log('Size budget OK.');
