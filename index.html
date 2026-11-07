@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en" data-scene="none" data-paused="false">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0b1118" />
+    <link rel="icon" href="data:," />
+    <title>MNNIT Conquest</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0b1118;
+        color: #f2f2f2;
+        font-family: system-ui, sans-serif;
+        touch-action: none;
+        overscroll-behavior: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #game {
+        position: fixed;
+        top: env(safe-area-inset-top, 0px);
+        right: env(safe-area-inset-right, 0px);
+        bottom: env(safe-area-inset-bottom, 0px);
+        left: env(safe-area-inset-left, 0px);
+        touch-action: none;
+      }
+      #game canvas {
+        touch-action: none;
+        display: block;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 24px;
+        text-align: center;
+        background: #0b1118;
+      }
+      #rotate {
+        z-index: 20;
+      }
+      #rotate .icon {
+        font-size: 64px;
+        animation: tilt 1.6s ease-in-out infinite;
+      }
+      @keyframes tilt {
+        0%,
+        100% {
+          transform: rotate(0deg);
+        }
+        50% {
+          transform: rotate(-90deg);
+        }
+      }
+      @media (orientation: portrait) {
+        #rotate {
+          display: flex;
+        }
+      }
+      #fatal {
+        z-index: 30;
+      }
+      #fatal[data-open='true'] {
+        display: flex;
+      }
+      #fatal button {
+        font: inherit;
+        font-size: 18px;
+        min-width: 200px;
+        min-height: 48px;
+        border: 0;
+        border-radius: 8px;
+        background: #f2c14e;
+        color: #1a1a1a;
+      }
+      #fatal button.secondary {
+        background: #3a4655;
+        color: #f2f2f2;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+
+    <div id="rotate" class="overlay" role="alert">
+      <div class="icon" aria-hidden="true">📱</div>
+      <div style="font-size: 24px">Rotate your phone</div>
+      <div style="opacity: 0.7">Ye game landscape mein khelte hain.</div>
+    </div>
+
+    <div id="fatal" class="overlay" role="alert" data-open="false">
+      <div style="font-size: 24px">Kuch gadbad ho gayi.</div>
+      <div style="opacity: 0.7">The game hit a problem. Details are in the console.</div>
+      <button id="fatal-reload" type="button">Reload</button>
+      <button id="fatal-reset" class="secondary" type="button">Reset progress</button>
+    </div>
+
+    <noscript>This game needs JavaScript.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
