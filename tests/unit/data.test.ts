@@ -1,76 +1,82 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { isBlocked } from '../../src/core/map/collision';
-import { findSpawn, parseCollision, parseHotspots } from '../../src/core/map/parse';
-import type { MapSize, Vec2 } from '../../src/core/map/types';
+import { findSpawn, parseHotspots, parseTilemap, parseTiles } from '../../src/core/map/parse';
 
 const read = (f: string): unknown => JSON.parse(readFileSync(`src/data/${f}`, 'utf8'));
+const defs = parseTiles(read('tiles.json'));
+const grid = parseTilemap(read('tilemap.json'), defs);
 const hotspots = parseHotspots(read('hotspots.json'));
-const rects = parseCollision(read('collision.json'));
 
-/** Width and height of the shipped map, read from the WebP header. */
-function webpSize(buf: Buffer): MapSize {
-  const kind = buf.toString('ascii', 12, 16);
-  if (kind === 'VP8X')
-    return { width: buf.readUIntLE(24, 3) + 1, height: buf.readUIntLE(27, 3) + 1 };
-  if (kind === 'VP8 ')
-    return { width: buf.readUInt16LE(26) & 0x3fff, height: buf.readUInt16LE(28) & 0x3fff };
-  const bits = buf.readUInt32LE(21);
-  return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
+/** Size of the tileset PNG, from its IHDR chunk. */
+function pngSize(buf: Buffer): { width: number; height: number } {
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
 }
-const map = webpSize(readFileSync('assets/map.webp'));
 
-describe('map data', () => {
-  it('reads the real map size', () => {
-    expect(map).toEqual({ width: 2000, height: 1342 });
+describe('tile data', () => {
+  it('has a tileset image with a picture for every tile type', () => {
+    const { width, height } = pngSize(readFileSync('assets/tiles/tileset.png'));
+    const margin = 1;
+    const spacing = 2;
+    // Phaser needs a whole number of tiles, with the margin counted on both sides.
+    const cols = (width - 2 * margin + spacing) / (grid.tileSize + spacing);
+    const rows = (height - 2 * margin + spacing) / (grid.tileSize + spacing);
+    expect(Number.isInteger(cols) && Number.isInteger(rows)).toBe(true);
+    expect(cols * rows).toBeGreaterThanOrEqual(defs.length);
   });
 
-  it('has unique ids and one spawn', () => {
+  it('has unique tile names', () => {
+    const names = defs.map((d) => d.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('makes roads, paths, plaza, track and underpass walkable, and scenery blocked', () => {
+    const walk = (name: string): boolean | undefined => defs.find((d) => d.name === name)?.walkable;
+    for (const n of ['road', 'road_dash_h', 'road_dash_v', 'path', 'plaza', 'track', 'underpass']) {
+      expect(walk(n), n).toBe(true);
+    }
+    for (const n of ['grass', 'roof', 'wall', 'rail', 'tree', 'field'])
+      expect(walk(n), n).toBe(false);
+  });
+});
+
+describe('map data', () => {
+  it('has unique hotspot ids and exactly one spawn', () => {
     const ids = hotspots.map((h) => h.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(hotspots.filter((h) => h.kind === 'spawn')).toHaveLength(1);
   });
 
-  it('keeps every hotspot and rect inside the map', () => {
+  it('keeps every hotspot inside the map', () => {
     for (const h of hotspots) {
-      expect(h.x).toBeGreaterThanOrEqual(0);
-      expect(h.x).toBeLessThanOrEqual(map.width);
-      expect(h.y).toBeGreaterThanOrEqual(0);
-      expect(h.y).toBeLessThanOrEqual(map.height);
-      expect(h.radius).toBeGreaterThan(0);
-    }
-    for (const r of rects) {
-      expect(r.x1).toBeLessThan(r.x2);
-      expect(r.y1).toBeLessThan(r.y2);
-      expect(r.x1).toBeGreaterThanOrEqual(0);
-      expect(r.y1).toBeGreaterThanOrEqual(0);
-      expect(r.x2).toBeLessThanOrEqual(map.width);
-      expect(r.y2).toBeLessThanOrEqual(map.height);
+      expect(h.x, h.id).toBeGreaterThanOrEqual(0);
+      expect(h.x, h.id).toBeLessThanOrEqual(grid.width);
+      expect(h.y, h.id).toBeGreaterThanOrEqual(0);
+      expect(h.y, h.id).toBeLessThanOrEqual(grid.height);
+      expect(h.radius, h.id).toBeGreaterThan(0);
     }
   });
 
-  it('spawns the player on free ground', () => {
+  it('spawns the player on a tile they can stand on', () => {
     const s = findSpawn(hotspots);
-    expect(isBlocked({ x: s.x, y: s.y }, rects, map)).toBe(false);
+    expect(isBlocked({ x: s.x, y: s.y }, grid)).toBe(false);
   });
 
-  it('lets the player walk from the spawn to every interactive hotspot', () => {
-    // Flood fill on an 6px grid using the real feet-box test. A hotspot is reachable if some free
-    // cell inside its radius is reached. This guards against exports that wall a hotspot off.
-    const step = 6;
-    const cols = Math.ceil(map.width / step);
-    const rows = Math.ceil(map.height / step);
-    const seen = new Uint8Array(cols * rows);
+  it('puts every interactive hotspot on a walkable tile the player can reach from the spawn', () => {
+    // Flood fill over tile centres where the feet box fits. Guards against exports that wall off a hotspot.
+    const ts = grid.tileSize;
     const free = (c: number, r: number): boolean =>
-      !isBlocked({ x: c * step, y: r * step }, rects, map);
+      !isBlocked({ x: (c + 0.5) * ts, y: (r + 0.5) * ts }, grid);
     const s = findSpawn(hotspots);
-    const queue: number[] = [Math.round(s.x / step) + Math.round(s.y / step) * cols];
-    seen[queue[0] ?? 0] = 1;
+    const start = Math.floor(s.x / ts) + Math.floor(s.y / ts) * grid.cols;
+    const seen = new Uint8Array(grid.cols * grid.rows);
+    const queue = [start];
+    seen[start] = 1;
     while (queue.length > 0) {
       const idx = queue.pop();
       if (idx === undefined) break;
-      const c = idx % cols;
-      const r = (idx - c) / cols;
+      const c = idx % grid.cols;
+      const r = (idx - c) / grid.cols;
       for (const [dc, dr] of [
         [1, 0],
         [-1, 0],
@@ -79,36 +85,43 @@ describe('map data', () => {
       ] as const) {
         const nc = c + dc;
         const nr = r + dr;
-        if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue;
-        const n = nc + nr * cols;
+        if (nc < 0 || nr < 0 || nc >= grid.cols || nr >= grid.rows) continue;
+        const n = nc + nr * grid.cols;
         if (seen[n] || !free(nc, nr)) continue;
         seen[n] = 1;
         queue.push(n);
       }
     }
     for (const h of hotspots.filter((d) => d.action !== undefined)) {
-      let reached = false;
-      const p: Vec2 = { x: 0, y: 0 };
-      for (let y = h.y - h.radius; y <= h.y + h.radius && !reached; y += step) {
-        for (let x = h.x - h.radius; x <= h.x + h.radius; x += step) {
-          if (Math.hypot(x - h.x, y - h.y) > h.radius) continue;
-          p.x = x;
-          p.y = y;
-          const c = Math.round(x / step);
-          const r = Math.round(y / step);
-          if (c >= 0 && r >= 0 && c < cols && r < rows && seen[c + r * cols]) {
-            reached = true;
-            break;
-          }
-        }
-      }
-      expect(reached, `${h.id} is not reachable from the spawn`).toBe(true);
+      const c = Math.floor(h.x / ts);
+      const r = Math.floor(h.y / ts);
+      expect(grid.isWalkableTile(c, r), `${h.id} is not on a walkable tile`).toBe(true);
+      expect(seen[c + r * grid.cols], `${h.id} is not reachable from the spawn`).toBe(1);
     }
   });
 
-  it('rejects malformed data with a clear message', () => {
+  it('has no walkable tile the player can never reach (no stranded paths)', () => {
+    const ts = grid.tileSize;
+    const s = findSpawn(hotspots);
+    const seen = new Set<number>();
+    const stack = [Math.floor(s.x / ts) + Math.floor(s.y / ts) * grid.cols];
+    while (stack.length > 0) {
+      const idx = stack.pop();
+      if (idx === undefined || seen.has(idx)) continue;
+      const c = idx % grid.cols;
+      const r = (idx - c) / grid.cols;
+      if (!grid.isWalkableTile(c, r)) continue;
+      seen.add(idx);
+      stack.push(idx + 1, idx - 1, idx + grid.cols, idx - grid.cols);
+    }
+    let walkable = 0;
+    for (let r = 0; r < grid.rows; r++)
+      for (let c = 0; c < grid.cols; c++) if (grid.isWalkableTile(c, r)) walkable++;
+    expect(seen.size).toBe(walkable);
+  });
+
+  it('rejects malformed hotspots with a clear message', () => {
     expect(() => parseHotspots({ v: 2, hotspots: [] })).toThrow(/version/);
     expect(() => parseHotspots({ v: 1, hotspots: [{ id: 'x' }] })).toThrow(/hotspots\[0\]/);
-    expect(() => parseCollision({ v: 1, rects: [{ name: 'r', x1: 'a' }] })).toThrow(/x1/);
   });
 });

@@ -1,4 +1,4 @@
-# MNNIT Conquest — Build Spec v2.1
+# MNNIT Conquest — Build Spec v2.2
 
 > **For the coding assistant:** This file is the source of truth. Read all of it before writing any code. If something here conflicts with what you would normally do, follow this file and tell me. Work one phase at a time (section 20) and stop after each phase.
 
@@ -51,7 +51,7 @@ Strict layering. `src/core` must never import Phaser or touch the DOM (enforce w
     ui/        Dialogue box, shop, HUD, touch controls, modals
     debug/     Lazy-loaded via dynamic import, only with ?debug=1
   /data        JSON content with typed loaders
-/assets        map.webp, sprite atlases, audio
+/assets        tiles/tileset.png, sprite atlases, audio
 /scripts       validate-data, check-size-budget
 /tests         unit/ and e2e/
 ```
@@ -270,16 +270,18 @@ The Director reuses existing attack definitions by id; no new archetypes.
 
 ## 12. Map spec
 
-- The world is one painted image: **`assets/map.webp`, 2048 × 1374 px** (provided, ~140 KB). No tile map.
-- Check `maxTextureSize` at runtime; show a clear error if the map exceeds it.
+- **The world is a tile map (changed in v2.2; v2 used one painted image).** A grid of 32 px tiles, 64 × 42 by default (2048 × 1344 px), drawn as a Phaser tile layer from `assets/tiles/tileset.png`. The layout is `data/tilemap.json` (one string per row, one character per tile); `data/tiles.json` is the legend: each tile type has a character, a name, a `walkable` flag and a swatch colour, and the Nth type is the Nth picture in the tileset image. The tileset has a 1 px margin, 2 px spacing and 1 px extruded edges so there are no seams on phones. `scripts/generate-tileset.mjs` draws the placeholder art from coloured shapes; replacing the PNG with real art changes the look with no code change. The original painted `assets/map.webp` is kept only as a reference and is not loaded.
+- **The player may only walk on roads.** Walkable tiles: roads (plain and dashed), kerb paths, canteen plaza, running track, underpass. Everything else (grass, field, roofs, walls, railway, trees, gate pillars, tables) blocks. Every walkable tile must be reachable from the spawn (tested).
+- If the tileset image has fewer pictures than `tiles.json` has types, show a clear error instead of a broken map.
 - **Movement:** 220 px/s default, delta-time based, delta clamped, diagonals normalised, joystick magnitude scales speed.
-- **Collision:** player feet-box 24x16. Static obstacles are rectangles in `data/collision.json`. Axis-separated AABB (x then y), no physics engine, no tunnelling, no corner sticking. Unit-tested in core.
+- **Collision:** player feet-box 24x16 against the tile grid: a position is valid only if every tile the box touches is walkable (outside the map counts as blocked). Movement is cut into steps under one tile and resolved x then y, so there is no tunnelling and no corner sticking. No physics engine. Unit-tested in core.
 - **Camera:** follows the player, clamped to world bounds, `MAP_ZOOM` constant (default 1.0), light smoothing, positions rounded to the device-pixel grid so the map never shimmers. The map and the UI use separate cameras, so `MAP_ZOOM` never scales the UI.
 - **Hotspots** (`data/hotspots.json`): point + radius. Entering shows the context button once; must leave the radius before it triggers again. Locked hotspots show "Locked" + a hint. Conquered sections show "Conquered" (no re-fight in v1).
 - **Labels:** section names drawn by the game over the map.
 - **NPCs** on the map are placeholder coloured circles with name labels; positions in `hotspots.json`.
 
-### Placeholder positions (map pixels, 2048×1374; refine in the debug editor)
+### Starting positions (map pixels; snapped to walkable tiles; refine in the debug editor)
+These were the 2048×1374 painted-map positions in v2; `hotspots.json` now holds the real, tile-snapped values.
 | id | x, y | Notes |
 |---|---|---|
 | `ganga_gate` (spawn) | 230, 690 | West gate arches on the main road |
@@ -295,14 +297,11 @@ The Director reuses existing attack definitions by id; no new archetypes.
 | `senior` | 900, 1080 | Hostel road |
 | `notice_board` | 640, 700 | Near the junction |
 
-### Rough collision rectangles (x1, y1, x2, y2; refine in editor)
-Academic 557,349,1117,571 · Library 1180,476,1509,567 · Admin 720,768,955,944 · Canteen building 427,37,540,120 · MP Hall 1247,747,1393,927 · Small canteen 1456,767,1547,873 · Dean's office 564,1040,673,1133 · Computer Centre 736,1033,863,1133 · SVBH 973,1007,1067,1340 · Hostel A 1173,1131,1515,1211 · Hostel B 1173,1264,1515,1347 · Railway north 1589,0,1660,607 · Railway south 1589,773,1660,1374. East of the railway is decoration; the player may walk there through the Underpass.
-
 ### Debug editor (`?debug=1`, lazy-loaded, never in the main bundle)
-- Shows collision rects, hotspot circles, player coordinates, FPS, frame time, object count.
-- Drag hotspots/NPCs; click-drag on empty map to draw collision rects; click a rect to delete or resize it.
+- Shows hotspot circles, blocked tiles (tinted), an optional tile grid, player coordinates and tile, FPS, frame time, object count.
+- **Tile painting:** palette of every tile type; tools Pan, Hotspots (drag a hotspot or NPC, drag the square on its circle to change its radius), Paint (drag; brush 1x1, 2x2 or 3x3), Fill rect (drag a rectangle), Pick (eyedropper), Undo (many levels), zoom and Fit.
 - Must work with touch on a phone as well as mouse.
-- **Export** button copies and downloads `hotspots.json` and `collision.json` in the exact schema.
+- **Export** button copies and downloads `tilemap.json` and `hotspots.json` in the exact schema.
 - Fight debug: hitbox overlay; cheats: give money, instant win, unlock all, set win count, set HP.
 
 ## 13. Dialogue system
@@ -322,7 +321,7 @@ Academic 557,349,1117,571 · Library 1180,476,1509,567 · Admin 720,768,955,944 
 
 ## 15. Data schemas (validated, versioned)
 
-All content is JSON in `src/data` with typed loaders: `sections.json`, `fighters.json`, `attacks.json`, `combat.json`, `perks.json`, `dialogues.json`, `pools.json`, `storyBeats.json`, `hotspots.json`, `collision.json`.
+All content is JSON in `src/data` with typed loaders: `sections.json`, `fighters.json`, `attacks.json`, `combat.json`, `perks.json`, `dialogues.json`, `pools.json`, `storyBeats.json`, `hotspots.json`, `tiles.json`, `tilemap.json`.
 
 `scripts/validate-data` runs in tests and CI and must fail on: unknown or duplicate ids, missing references (section → fighter, beat → dialogue, pool ids, attack ids), numbers out of sane ranges, hotspots/rects outside the map, telegraphs below the fairness limits, and empty pools.
 
@@ -359,7 +358,7 @@ All content is JSON in `src/data` with typed loaders: `sections.json`, `fighters
 
 - 60 fps on a mid-range Android phone; frame time < 16.6 ms; no GC hitches in fights.
 - Initial load < 3 s on 4G. Initial transfer ≤ 1.5 MB. Main JS (gzipped, incl. Phaser) ≤ 500 KB — if Phaser alone breaks this, report the real number and propose options.
-- `map.webp` ≤ 600 KB (provided file is ~140 KB). Sprites in atlases. Audio compressed, loaded after the game starts.
+- `tileset.png` ≤ 600 KB (the placeholder is ~3 KB). Sprites in atlases. Audio compressed, loaded after the game starts.
 - Lazy-load fight assets when entering a fight; show a loading bar only for the initial load.
 - **No allocations in update loops.** Pools for projectiles, effects, floating text. No per-frame arrays/objects/closures/string building in hot paths.
 - Lay out at 960x540 logical units; the backing canvas is `RENDER_SCALE` (1 or 2) times that for crispness. Cheap effects only. Re-measure fps whenever `RENDER_SCALE` or a full-screen effect changes.
@@ -391,7 +390,7 @@ Work one phase at a time. At the end of each: run all gates, deploy, commit, tag
 
 **Phase 0 — Scaffold + live link.** Vite + Phaser + TS, folders, lint/format/tests, CI with GitHub Pages deploy, size-budget script, error handling, 960x540 FIT scaling, portrait overlay, Tap to start, loading bar, README. *Done when:* CI is green and the live link shows a scaled blank scene on my phone and laptop.
 
-**Phase 1 — Map + input.** Input abstraction, joystick, keyboard, Map scene with `map.webp`, movement, collision, camera, hotspots, context button, placeholder NPC circles, debug editor with export. *Done when:* I can walk smoothly and place all hotspots and collision by eye on phone and laptop, then export the JSON.
+**Phase 1 — Map + input.** Input abstraction, joystick, keyboard, Map scene (tile map), movement, collision, camera, hotspots, context button, placeholder NPC circles, debug editor with export. *Done when:* I can walk smoothly and place all hotspots and collision by eye on phone and laptop, then export the JSON.
 
 **Phase 2 — Combat core.** Pure-core sim, state machine, frame data, punch chains, block-by-holding-away, dodge, stamina, meter, LITE LO special, status effects, HUD with CGPA display, touch buttons, training dummy, hitbox debug. *Done when:* the fight feels responsive and I approve the feel (including the toward=heavy control scheme).
 

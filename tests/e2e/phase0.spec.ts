@@ -58,8 +58,8 @@ test('a thrown runtime error shows ErrorScene', async ({ page }) => {
   expect(await scene(page)).toBe('Error');
 });
 
-test('a failed map load shows Retry and stays on Preload', async ({ page }) => {
-  await page.route(/\.webp/, (route) => route.abort());
+test('a failed asset load shows Retry and stays on Preload', async ({ page }) => {
+  await page.route(/\.png/, (route) => route.abort());
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('data-load-error', 'true');
   await expect(page.locator('html')).toHaveAttribute('data-scene', 'Preload');

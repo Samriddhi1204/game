@@ -26,7 +26,9 @@ in the spec; suggest them instead.
 
 ## Coordinates
 
-Layout and game coordinates are logical (960x540). The map is 2000 x 1342 px (not the 2048 x 1374
-in the spec); map-space data in `hotspots.json` and `collision.json` uses map pixels.
+Layout and game coordinates are logical (960x540). The map is a tile grid (`src/data/tilemap.json`,
+32 px tiles, 64 x 42 = 2048 x 1344 px, legend in `tiles.json`); hotspot positions in
+`hotspots.json` are in map pixels. The player may only walk on walkable tiles (roads, kerbs, plaza,
+track, underpass). Tile pictures are `assets/tiles/tileset.png` (see `scripts/generate-tileset.mjs`).
 
 Branch `main` deploys to GitHub Pages.

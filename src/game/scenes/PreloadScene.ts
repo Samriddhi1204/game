@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
-import mapUrl from '../../../assets/map.webp?url';
+import tilesetUrl from '../../../assets/tiles/tileset.png?url';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { setSceneLabel } from '../dom';
 import { addText, setView } from '../gfx';
 
-export const MAP_TEXTURE = 'map';
+export const TILESET_TEXTURE = 'tileset';
+/** Tile images are 32px with a 1px margin and 2px spacing (see scripts/generate-tileset.mjs). */
+export const TILESET_MARGIN = 1;
+export const TILESET_SPACING = 2;
 
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -30,7 +33,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, () => {
       this.showRetry();
     });
-    this.load.image(MAP_TEXTURE, mapUrl);
+    this.load.image(TILESET_TEXTURE, tilesetUrl);
   }
 
   create(): void {

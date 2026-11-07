@@ -1,0 +1,101 @@
+{
+  "v": 1,
+  "tiles": [
+    {
+      "char": ".",
+      "name": "grass",
+      "walkable": false,
+      "color": "#7ac52a"
+    },
+    {
+      "char": ",",
+      "name": "grass_flowers",
+      "walkable": false,
+      "color": "#8ccd3c"
+    },
+    {
+      "char": "=",
+      "name": "road",
+      "walkable": true,
+      "color": "#96999e"
+    },
+    {
+      "char": "-",
+      "name": "road_dash_h",
+      "walkable": true,
+      "color": "#aeb1b5"
+    },
+    {
+      "char": "|",
+      "name": "road_dash_v",
+      "walkable": true,
+      "color": "#aeb1b5"
+    },
+    {
+      "char": "p",
+      "name": "path",
+      "walkable": true,
+      "color": "#d2d5d8"
+    },
+    {
+      "char": "P",
+      "name": "plaza",
+      "walkable": true,
+      "color": "#c4c8cd"
+    },
+    {
+      "char": "t",
+      "name": "track",
+      "walkable": true,
+      "color": "#b5573f"
+    },
+    {
+      "char": "f",
+      "name": "field",
+      "walkable": false,
+      "color": "#5f9b2a"
+    },
+    {
+      "char": "R",
+      "name": "roof",
+      "walkable": false,
+      "color": "#e0501f"
+    },
+    {
+      "char": "w",
+      "name": "wall",
+      "walkable": false,
+      "color": "#f0c982"
+    },
+    {
+      "char": "#",
+      "name": "rail",
+      "walkable": false,
+      "color": "#6e5a46"
+    },
+    {
+      "char": "u",
+      "name": "underpass",
+      "walkable": true,
+      "color": "#2e2e32"
+    },
+    {
+      "char": "T",
+      "name": "tree",
+      "walkable": false,
+      "color": "#287f28"
+    },
+    {
+      "char": "a",
+      "name": "arch",
+      "walkable": false,
+      "color": "#a0644b"
+    },
+    {
+      "char": "b",
+      "name": "table",
+      "walkable": false,
+      "color": "#96643c"
+    }
+  ]
+}

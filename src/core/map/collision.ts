@@ -1,106 +1,123 @@
-import type { MapSize, Rect, Vec2 } from './types';
+import type { TileGrid } from './tiles';
+import type { Vec2 } from './types';
 
 /** Player feet-box size (spec section 12). `pos` is the centre of this box. */
 export const FEET_W = 24;
 export const FEET_H = 16;
 
 const EPS = 1e-6;
+/** Longest distance moved in one sub-step. Less than a tile, so a wall can never be skipped. */
+const MAX_STEP = 8;
 
-function overlaps(pos: Vec2, hw: number, hh: number, r: Rect): boolean {
-  return (
-    pos.x + hw > r.x1 + EPS &&
-    pos.x - hw < r.x2 - EPS &&
-    pos.y + hh > r.y1 + EPS &&
-    pos.y - hh < r.y2 - EPS
-  );
-}
-
-/** True if a feet box centred at pos overlaps any rect or leaves the map. */
-export function isBlocked(
-  pos: Vec2,
-  rects: readonly Rect[],
-  map: MapSize,
-  hw = FEET_W / 2,
-  hh = FEET_H / 2,
-): boolean {
-  if (pos.x < hw || pos.y < hh || pos.x > map.width - hw || pos.y > map.height - hh) return true;
-  for (let i = 0; i < rects.length; i++) {
-    const r = rects[i];
-    if (r && overlaps(pos, hw, hh, r)) return true;
+/** True if a feet box centred at pos touches any blocked tile or leaves the map. */
+export function isBlocked(pos: Vec2, grid: TileGrid, hw = FEET_W / 2, hh = FEET_H / 2): boolean {
+  const ts = grid.tileSize;
+  const c0 = Math.floor((pos.x - hw) / ts);
+  const c1 = Math.floor((pos.x + hw - EPS) / ts);
+  const r0 = Math.floor((pos.y - hh) / ts);
+  const r1 = Math.floor((pos.y + hh - EPS) / ts);
+  for (let r = r0; r <= r1; r++) {
+    for (let c = c0; c <= c1; c++) {
+      if (!grid.isWalkableTile(c, r)) return true;
+    }
   }
   return false;
 }
 
-/** Push the box out of any rect it already overlaps (e.g. a rect drawn over the player). */
-function depenetrate(pos: Vec2, rects: readonly Rect[], hw: number, hh: number): void {
-  for (let iter = 0; iter < 4; iter++) {
-    let moved = false;
-    for (let i = 0; i < rects.length; i++) {
-      const r = rects[i];
-      if (!r || !overlaps(pos, hw, hh, r)) continue;
-      const pushLeft = pos.x + hw - r.x1;
-      const pushRight = r.x2 - (pos.x - hw);
-      const pushUp = pos.y + hh - r.y1;
-      const pushDown = r.y2 - (pos.y - hh);
-      const m = Math.min(pushLeft, pushRight, pushUp, pushDown);
-      if (m === pushLeft) pos.x -= pushLeft;
-      else if (m === pushRight) pos.x += pushRight;
-      else if (m === pushUp) pos.y -= pushUp;
-      else pos.y += pushDown;
-      moved = true;
+const probe: Vec2 = { x: 0, y: 0 };
+
+/** Move a stuck player to the nearest tile centre where the feet box fits (e.g. after the editor paints over them). */
+function escape(pos: Vec2, grid: TileGrid, hw: number, hh: number): void {
+  const ts = grid.tileSize;
+  const c0 = Math.floor(pos.x / ts);
+  const r0 = Math.floor(pos.y / ts);
+  let bestD2 = Infinity;
+  let bx = pos.x;
+  let by = pos.y;
+  const reach = Math.max(grid.cols, grid.rows);
+  for (let ring = 1; ring <= reach; ring++) {
+    for (let r = r0 - ring; r <= r0 + ring; r++) {
+      for (let c = c0 - ring; c <= c0 + ring; c++) {
+        if (Math.max(Math.abs(r - r0), Math.abs(c - c0)) !== ring) continue;
+        probe.x = (c + 0.5) * ts;
+        probe.y = (r + 0.5) * ts;
+        if (isBlocked(probe, grid, hw, hh)) continue;
+        const d2 = (probe.x - pos.x) ** 2 + (probe.y - pos.y) ** 2;
+        if (d2 < bestD2) {
+          bestD2 = d2;
+          bx = probe.x;
+          by = probe.y;
+        }
+      }
     }
-    if (!moved) return;
+    // A found tile in ring k can still lose to a closer one in ring k+1 (diagonals), so look one more.
+    if (bestD2 < Infinity && (ring - 1) * ts > Math.sqrt(bestD2)) break;
   }
+  pos.x = bx;
+  pos.y = by;
+}
+
+function blockedColumn(grid: TileGrid, col: number, r0: number, r1: number): boolean {
+  for (let r = r0; r <= r1; r++) if (!grid.isWalkableTile(col, r)) return true;
+  return false;
+}
+
+function blockedRow(grid: TileGrid, row: number, c0: number, c1: number): boolean {
+  for (let c = c0; c <= c1; c++) if (!grid.isWalkableTile(c, row)) return true;
+  return false;
+}
+
+function stepX(pos: Vec2, dx: number, grid: TileGrid, hw: number, hh: number): void {
+  if (dx === 0) return;
+  const ts = grid.tileSize;
+  const r0 = Math.floor((pos.y - hh) / ts);
+  const r1 = Math.floor((pos.y + hh - EPS) / ts);
+  let nx = pos.x + dx;
+  if (dx > 0) {
+    const c = Math.floor((nx + hw - EPS) / ts);
+    if (blockedColumn(grid, c, r0, r1)) nx = c * ts - hw;
+  } else {
+    const c = Math.floor((nx - hw) / ts);
+    if (blockedColumn(grid, c, r0, r1)) nx = (c + 1) * ts + hw;
+  }
+  pos.x = nx;
+}
+
+function stepY(pos: Vec2, dy: number, grid: TileGrid, hw: number, hh: number): void {
+  if (dy === 0) return;
+  const ts = grid.tileSize;
+  const c0 = Math.floor((pos.x - hw) / ts);
+  const c1 = Math.floor((pos.x + hw - EPS) / ts);
+  let ny = pos.y + dy;
+  if (dy > 0) {
+    const r = Math.floor((ny + hh - EPS) / ts);
+    if (blockedRow(grid, r, c0, c1)) ny = r * ts - hh;
+  } else {
+    const r = Math.floor((ny - hh) / ts);
+    if (blockedRow(grid, r, c0, c1)) ny = (r + 1) * ts + hh;
+  }
+  pos.y = ny;
 }
 
 /**
- * Move `pos` by (dx, dy), x first then y. Each axis is swept against the rect edges it would
- * cross, so a large step can never tunnel through a wall, and sliding along a wall never sticks
- * on a corner. Mutates `pos`; allocates nothing.
+ * Move `pos` by (dx, dy) over walkable tiles only. Movement is cut into steps shorter than a tile
+ * and each step is resolved x then y, so the player slides along walls, never sticks on a corner,
+ * and can never cross a blocked tile however big the frame delta. Mutates `pos`; allocates nothing.
  */
 export function moveAndCollide(
   pos: Vec2,
   dx: number,
   dy: number,
-  rects: readonly Rect[],
-  map: MapSize,
+  grid: TileGrid,
   hw = FEET_W / 2,
   hh = FEET_H / 2,
 ): void {
-  depenetrate(pos, rects, hw, hh);
-
-  if (dx !== 0) {
-    let nx = pos.x + dx;
-    const top = pos.y - hh;
-    const bottom = pos.y + hh;
-    for (let i = 0; i < rects.length; i++) {
-      const r = rects[i];
-      if (!r || !(top < r.y2 - EPS && bottom > r.y1 + EPS)) continue;
-      if (dx > 0) {
-        if (pos.x + hw <= r.x1 + EPS && nx + hw > r.x1) nx = Math.min(nx, r.x1 - hw);
-      } else if (pos.x - hw >= r.x2 - EPS && nx - hw < r.x2) {
-        nx = Math.max(nx, r.x2 + hw);
-      }
-    }
-    pos.x = nx;
+  if (isBlocked(pos, grid, hw, hh)) escape(pos, grid, hw, hh);
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / MAX_STEP));
+  const sx = dx / steps;
+  const sy = dy / steps;
+  for (let i = 0; i < steps; i++) {
+    stepX(pos, sx, grid, hw, hh);
+    stepY(pos, sy, grid, hw, hh);
   }
-
-  if (dy !== 0) {
-    let ny = pos.y + dy;
-    const left = pos.x - hw;
-    const right = pos.x + hw;
-    for (let i = 0; i < rects.length; i++) {
-      const r = rects[i];
-      if (!r || !(left < r.x2 - EPS && right > r.x1 + EPS)) continue;
-      if (dy > 0) {
-        if (pos.y + hh <= r.y1 + EPS && ny + hh > r.y1) ny = Math.min(ny, r.y1 - hh);
-      } else if (pos.y - hh >= r.y2 - EPS && ny - hh < r.y2) {
-        ny = Math.max(ny, r.y2 + hh);
-      }
-    }
-    pos.y = ny;
-  }
-
-  pos.x = Math.min(Math.max(pos.x, hw), map.width - hw);
-  pos.y = Math.min(Math.max(pos.y, hh), map.height - hh);
 }

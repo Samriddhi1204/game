@@ -6,7 +6,7 @@ import { gzipSync } from 'node:zlib';
 const LIMITS = {
   initialJsGzip: 500 * 1024,
   initialTransfer: 1.5 * 1024 * 1024,
-  map: 600 * 1024,
+  tileset: 600 * 1024,
 };
 
 const dist = new URL('../dist/', import.meta.url).pathname;
@@ -40,14 +40,14 @@ let cssGzip = 0;
 for (const ref of cssRefs) cssGzip += gz(readFileSync(resolve(ref)));
 const htmlGzip = gz(Buffer.from(html));
 
-// The map is fetched during the initial Preload scene, so it counts as initial transfer.
+// The tileset is fetched during the initial Preload scene, so it counts as initial transfer.
 const assetsDir = join(dist, 'assets');
-const mapFile = readdirSync(assetsDir).find((f) => /^map.*\.webp$/.test(f));
-if (!mapFile) {
-  console.error('Hashed map .webp not found in dist/assets.');
+const tilesetFile = readdirSync(assetsDir).find((f) => /^tileset.*\.png$/.test(f));
+if (!tilesetFile) {
+  console.error('Hashed tileset .png not found in dist/assets.');
   process.exit(1);
 }
-const mapBytes = statSync(join(assetsDir, mapFile)).size;
+const tilesetBytes = statSync(join(assetsDir, tilesetFile)).size;
 
 // The debug editor must stay out of the initial bundle (it is lazy-loaded with ?debug=1).
 const leaked = [...jsRefs].filter((ref) =>
@@ -63,16 +63,16 @@ const lazyChunk = readdirSync(join(dist, 'assets')).find(
     readFileSync(join(dist, 'assets', f), 'utf8').includes('MAP_EDITOR_MARKER'),
 );
 
-const transfer = htmlGzip + jsGzip + cssGzip + mapBytes;
+const transfer = htmlGzip + jsGzip + cssGzip + tilesetBytes;
 const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
 console.log(`Initial JS (gzip):  ${kb(jsGzip)}  (limit ${kb(LIMITS.initialJsGzip)})`);
 console.log(`Initial transfer:   ${kb(transfer)}  (limit ${kb(LIMITS.initialTransfer)})`);
-console.log(`Map (${mapFile}):  ${kb(mapBytes)}  (limit ${kb(LIMITS.map)})`);
+console.log(`Tileset (${tilesetFile}):  ${kb(tilesetBytes)}  (limit ${kb(LIMITS.tileset)})`);
 
 const failures = [];
 if (jsGzip > LIMITS.initialJsGzip) failures.push('initial JS over budget');
 if (transfer > LIMITS.initialTransfer) failures.push('initial transfer over budget');
-if (mapBytes > LIMITS.map) failures.push('map over budget');
+if (tilesetBytes > LIMITS.tileset) failures.push('tileset over budget');
 if (!lazyChunk) failures.push('debug editor chunk not found (marker missing from lazy chunk)');
 if (leaked.length > 0)
   failures.push(`debug editor leaked into the initial bundle (${leaked.join(', ')})`);

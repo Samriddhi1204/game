@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import { followView, roundToDevicePixel, snapView } from '../../core/map/camera';
 import { moveAndCollide } from '../../core/map/collision';
 import { HotspotTracker, type HotspotDef } from '../../core/map/hotspots';
+import type { TileGrid } from '../../core/map/tiles';
 import type { MapSize, Vec2 } from '../../core/map/types';
-import { findSpawn, loadCollision, loadHotspots } from '../../data';
+import { findSpawn, loadGrid, loadHotspots } from '../../data';
 import {
   DEBUG,
   GAME_HEIGHT,
@@ -20,7 +21,7 @@ import { addText, setView } from '../gfx';
 import { InputManager } from '../input/InputManager';
 import { HitButton } from '../ui/HitButton';
 import { UserFacingError } from '../userError';
-import { MAP_TEXTURE } from './PreloadScene';
+import { TILESET_MARGIN, TILESET_SPACING, TILESET_TEXTURE } from './PreloadScene';
 
 interface Marker {
   def: HotspotDef;
@@ -69,10 +70,8 @@ export class MapScene extends Phaser.Scene {
     this.lastPromptKey = '';
 
     const hotspots = loadHotspots();
-    const rects = loadCollision();
-    const tex = this.textures.get(MAP_TEXTURE).getSourceImage();
-    const mapSize: MapSize = { width: tex.width, height: tex.height };
-    this.checkTextureSize(mapSize);
+    const grid = loadGrid();
+    const mapSize: MapSize = { width: grid.width, height: grid.height };
 
     const worldCam = this.cameras.main;
     worldCam.setBackgroundColor('#0b1118');
@@ -84,13 +83,14 @@ export class MapScene extends Phaser.Scene {
     worldCam.ignore(uiLayer);
     this.uiCam.ignore(worldLayer);
 
+    const ground = this.buildGround(grid);
     const spawn = findSpawn(hotspots);
     const player: Vec2 = { x: spawn.x, y: spawn.y };
     const view: Vec2 = { x: 0, y: 0 };
     this.host = {
       scene: this,
       hotspots,
-      rects,
+      grid,
       mapSize,
       player,
       view,
@@ -102,11 +102,15 @@ export class MapScene extends Phaser.Scene {
       syncVisuals: () => {
         this.syncMarkers();
       },
+      setTile: (col, row, type) => {
+        grid.setType(col, row, type);
+        ground.putTileAt(type, col, row);
+      },
     };
     this.tracker = new HotspotTracker(hotspots);
 
-    // World
-    worldLayer.add(this.add.image(0, 0, MAP_TEXTURE).setOrigin(0, 0));
+    // World: one tile layer for the ground, built from the grid.
+    worldLayer.add(ground);
     for (const def of hotspots) this.markers.push(this.buildMarker(def, worldLayer));
     this.playerShadow = this.add.ellipse(0, 0, 26, 12, 0x000000, 0.3);
     this.playerBody = this.add.circle(0, 0, 11, 0xffd54f).setStrokeStyle(3, 0x3b2f2f);
@@ -194,13 +198,7 @@ export class MapScene extends Phaser.Scene {
       my /= len;
     }
     if (mx !== 0 || my !== 0) {
-      moveAndCollide(
-        host.player,
-        mx * PLAYER_SPEED * dt,
-        my * PLAYER_SPEED * dt,
-        host.rects,
-        host.mapSize,
-      );
+      moveAndCollide(host.player, mx * PLAYER_SPEED * dt, my * PLAYER_SPEED * dt, host.grid);
       this.placePlayer();
     }
 
@@ -232,16 +230,33 @@ export class MapScene extends Phaser.Scene {
     }
   }
 
-  private checkTextureSize(map: MapSize): void {
-    const renderer = this.game.renderer;
-    if (renderer.type !== Phaser.WEBGL) return;
-    const gl = (renderer as Phaser.Renderer.WebGL.WebGLRenderer).gl;
-    const max = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE));
-    if (map.width > max || map.height > max) {
+  /** A Phaser tile layer from the grid. The tileset image holds one picture per tile type. */
+  private buildGround(grid: TileGrid): Phaser.Tilemaps.TilemapLayer {
+    const ts = grid.tileSize;
+    const data: number[][] = [];
+    for (let r = 0; r < grid.rows; r++) {
+      const row: number[] = [];
+      for (let c = 0; c < grid.cols; c++) row.push(grid.typeAt(c, r));
+      data.push(row);
+    }
+    const map = this.make.tilemap({ data, tileWidth: ts, tileHeight: ts });
+    const tileset = map.addTilesetImage(
+      TILESET_TEXTURE,
+      TILESET_TEXTURE,
+      ts,
+      ts,
+      TILESET_MARGIN,
+      TILESET_SPACING,
+    );
+    if (!tileset) throw new UserFacingError('The tileset image could not be read.');
+    if (tileset.total < grid.defs.length) {
       throw new UserFacingError(
-        `This device cannot show the map (${map.width}x${map.height}, limit ${max}).`,
+        `tileset.png has ${tileset.total} tiles but tiles.json lists ${grid.defs.length}.`,
       );
     }
+    const layer = map.createLayer(0, tileset, 0, 0);
+    if (!layer) throw new UserFacingError('The map could not be built from the tileset.');
+    return layer;
   }
 
   private buildMarker(def: HotspotDef, layer: Phaser.GameObjects.Layer): Marker {

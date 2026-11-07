@@ -1,5 +1,5 @@
 import { HOTSPOT_KINDS, type HotspotDef, type HotspotKind } from './hotspots';
-import type { NamedRect } from './types';
+import { TileGrid, type TileDef } from './tiles';
 
 function rec(v: unknown, path: string): Record<string, unknown> {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) {
@@ -67,21 +67,40 @@ export function parseHotspots(raw: unknown): HotspotDef[] {
   });
 }
 
-/** Parse and validate collision.json. Returns fresh, mutable objects. */
-export function parseCollision(raw: unknown): NamedRect[] {
-  const root = rec(raw, 'collision.json');
-  if (root['v'] !== 1) throw new Error('collision.json: unsupported version');
-  return list(root, 'rects', 'collision.json').map((item, i) => {
-    const path = `rects[${i}]`;
+function bool(o: Record<string, unknown>, key: string, path: string): boolean {
+  const v = o[key];
+  if (typeof v !== 'boolean') throw new Error(`${path}.${key}: expected true or false`);
+  return v;
+}
+
+/** Parse and validate tiles.json (the tile legend). */
+export function parseTiles(raw: unknown): TileDef[] {
+  const root = rec(raw, 'tiles.json');
+  if (root['v'] !== 1) throw new Error('tiles.json: unsupported version');
+  return list(root, 'tiles', 'tiles.json').map((item, i) => {
+    const path = `tiles[${i}]`;
     const o = rec(item, path);
-    return {
-      name: str(o, 'name', path),
-      x1: num(o, 'x1', path),
-      y1: num(o, 'y1', path),
-      x2: num(o, 'x2', path),
-      y2: num(o, 'y2', path),
-    };
+    const char = str(o, 'char', path);
+    if (char.length !== 1) throw new Error(`${path}.char: must be exactly one character`);
+    const color = str(o, 'color', path);
+    if (!/^#[0-9a-fA-F]{6}$/.test(color)) throw new Error(`${path}.color: expected #rrggbb`);
+    return { char, name: str(o, 'name', path), walkable: bool(o, 'walkable', path), color };
   });
+}
+
+/** Parse and validate tilemap.json against the legend. Returns a fresh, mutable grid. */
+export function parseTilemap(raw: unknown, defs: readonly TileDef[]): TileGrid {
+  const root = rec(raw, 'tilemap.json');
+  if (root['v'] !== 1) throw new Error('tilemap.json: unsupported version');
+  const tileSize = num(root, 'tileSize', 'tilemap.json');
+  if (!Number.isInteger(tileSize) || tileSize < 8 || tileSize > 128) {
+    throw new Error('tilemap.json.tileSize: expected an integer 8..128');
+  }
+  const rows = list(root, 'rows', 'tilemap.json').map((r, i) => {
+    if (typeof r !== 'string') throw new Error(`tilemap.json.rows[${i}]: expected a string`);
+    return r;
+  });
+  return new TileGrid(tileSize, rows, defs);
 }
 
 /** The single spawn hotspot. */

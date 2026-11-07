@@ -28,6 +28,8 @@ export async function startGame(page: Page, query = '?e2e=1'): Promise<void> {
     await page.mouse.click(640, 360);
   }
   await page.locator('html[data-scene="Map"]').waitFor();
+  // The test hooks write state every 100 ms; wait for the first write so positions are real.
+  await page.waitForFunction(() => document.documentElement.dataset['playerX'] !== undefined);
 }
 
 function isTouchViewport(page: Page): boolean {

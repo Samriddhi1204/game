@@ -1,42 +1,102 @@
-// Validates src/data/*.json. Fails on parse errors, unknown or duplicate ids, numbers out of range
-// and hotspots or rects outside the map. More checks arrive with each phase's data files.
-import { readdirSync, readFileSync } from 'node:fs';
+// Validates src/data/*.json and the tileset image. Fails on parse errors, unknown or duplicate ids,
+// numbers out of range, hotspots outside the map or on blocked tiles, and a tileset that is too
+// small for the legend. More checks arrive with each phase's data files.
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = new URL('../', import.meta.url).pathname;
-const dataDir = join(root, 'src/data');
 const errors = [];
 const fail = (msg) => errors.push(msg);
 
 function readJson(file) {
   try {
-    return JSON.parse(readFileSync(join(dataDir, file), 'utf8'));
+    return JSON.parse(readFileSync(join(root, 'src/data', file), 'utf8'));
   } catch (err) {
     fail(`${file}: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }
 
-/** Width and height from the WebP header (VP8, VP8L or VP8X). */
-function webpSize(buf) {
-  const kind = buf.toString('ascii', 12, 16);
-  if (kind === 'VP8X')
-    return { width: buf.readUIntLE(24, 3) + 1, height: buf.readUIntLE(27, 3) + 1 };
-  if (kind === 'VP8 ') {
-    return { width: buf.readUInt16LE(26) & 0x3fff, height: buf.readUInt16LE(28) & 0x3fff };
-  }
-  const bits = buf.readUInt32LE(21);
-  return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
-}
-
-const files = readdirSync(dataDir).filter((f) => f.endsWith('.json'));
-const data = Object.fromEntries(files.map((f) => [f, readJson(f)]));
-const map = webpSize(readFileSync(join(root, 'assets/map.webp')));
-
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const KINDS = ['spawn', 'section', 'npc', 'shop', 'board', 'landmark'];
+const MARGIN = 1;
+const SPACING = 2;
 
-const hs = data['hotspots.json'];
+// ---- tiles.json
+const tilesFile = readJson('tiles.json');
+const tiles = Array.isArray(tilesFile?.tiles) ? tilesFile.tiles : [];
+if (tilesFile && tilesFile.v !== 1) fail('tiles.json: v must be 1');
+if (tiles.length === 0) fail('tiles.json: tiles must be a non-empty array');
+const chars = new Set();
+const names = new Set();
+for (const t of tiles) {
+  const at = `tiles.json[${t?.name ?? '?'}]`;
+  if (typeof t?.char !== 'string' || t.char.length !== 1) fail(`${at}: char must be one character`);
+  else if (chars.has(t.char)) fail(`${at}: duplicate char "${t.char}"`);
+  else chars.add(t.char);
+  if (typeof t?.name !== 'string' || !t.name) fail(`${at}: missing name`);
+  else if (names.has(t.name)) fail(`${at}: duplicate name`);
+  else names.add(t.name);
+  if (typeof t?.walkable !== 'boolean') fail(`${at}: walkable must be true or false`);
+  if (!/^#[0-9a-fA-F]{6}$/.test(t?.color ?? '')) fail(`${at}: color must be #rrggbb`);
+}
+const byChar = new Map(tiles.map((t) => [t.char, t]));
+
+// ---- tilemap.json
+const tm = readJson('tilemap.json');
+let cols = 0;
+let rows = 0;
+let tileSize = 32;
+if (tm) {
+  if (tm.v !== 1) fail('tilemap.json: v must be 1');
+  tileSize = tm.tileSize;
+  if (!Number.isInteger(tileSize) || tileSize < 8 || tileSize > 128)
+    fail('tilemap.json: tileSize must be an integer 8..128');
+  const list = Array.isArray(tm.rows) ? tm.rows : [];
+  rows = list.length;
+  cols = typeof list[0] === 'string' ? list[0].length : 0;
+  if (rows === 0 || cols === 0) fail('tilemap.json: rows must be a non-empty array of strings');
+  list.forEach((line, r) => {
+    if (typeof line !== 'string' || line.length !== cols) {
+      fail(`tilemap.json: row ${r} must be a string of ${cols} tiles`);
+      return;
+    }
+    for (let c = 0; c < cols; c++) {
+      if (!byChar.has(line[c]))
+        fail(`tilemap.json: unknown tile "${line[c]}" at row ${r}, col ${c}`);
+    }
+  });
+}
+const mapW = cols * tileSize;
+const mapH = rows * tileSize;
+const walkableAt = (x, y) => {
+  const line = tm?.rows?.[Math.floor(y / tileSize)];
+  return typeof line === 'string' && byChar.get(line[Math.floor(x / tileSize)])?.walkable === true;
+};
+
+// ---- tileset.png: needs a picture for every tile type
+try {
+  const png = readFileSync(join(root, 'assets/tiles/tileset.png'));
+  const w = png.readUInt32BE(16);
+  const h = png.readUInt32BE(20);
+  const perRow = (w - 2 * MARGIN + SPACING) / (tileSize + SPACING);
+  const perCol = (h - 2 * MARGIN + SPACING) / (tileSize + SPACING);
+  if (!Number.isInteger(perRow) || !Number.isInteger(perCol)) {
+    fail(
+      `assets/tiles/tileset.png is ${w}x${h}: not a whole number of ${tileSize}px tiles with margin ${MARGIN} and spacing ${SPACING}`,
+    );
+  }
+  if (perRow * perCol < tiles.length) {
+    fail(
+      `assets/tiles/tileset.png fits ${perRow * perCol} tiles but tiles.json lists ${tiles.length}`,
+    );
+  }
+} catch (err) {
+  fail(`assets/tiles/tileset.png: ${err instanceof Error ? err.message : String(err)}`);
+}
+
+// ---- hotspots.json
+const hs = readJson('hotspots.json');
 if (hs) {
   if (hs.v !== 1) fail('hotspots.json: v must be 1');
   const list = Array.isArray(hs.hotspots) ? hs.hotspots : [];
@@ -49,11 +109,17 @@ if (hs) {
     else ids.add(h.id);
     if (!KINDS.includes(h?.kind)) fail(`${at}: unknown kind "${h?.kind}"`);
     if (typeof h?.label !== 'string' || !h.label) fail(`${at}: missing label`);
-    if (!isNum(h?.x) || h.x < 0 || h.x > map.width)
-      fail(`${at}: x outside the map (0..${map.width})`);
-    if (!isNum(h?.y) || h.y < 0 || h.y > map.height)
-      fail(`${at}: y outside the map (0..${map.height})`);
+    if (!isNum(h?.x) || h.x < 0 || h.x > mapW) fail(`${at}: x outside the map (0..${mapW})`);
+    if (!isNum(h?.y) || h.y < 0 || h.y > mapH) fail(`${at}: y outside the map (0..${mapH})`);
     if (!isNum(h?.radius) || h.radius < 8 || h.radius > 400) fail(`${at}: radius must be 8..400`);
+    if (
+      (h?.action !== undefined || h?.kind === 'spawn') &&
+      isNum(h?.x) &&
+      isNum(h?.y) &&
+      !walkableAt(h.x, h.y)
+    ) {
+      fail(`${at}: must sit on a walkable tile`);
+    }
     if (
       h?.requiresWins !== undefined &&
       (!Number.isInteger(h.requiresWins) || h.requiresWins < 0 || h.requiresWins > 5)
@@ -69,29 +135,10 @@ if (hs) {
     fail('hotspots.json: need exactly one spawn');
 }
 
-const col = data['collision.json'];
-if (col) {
-  if (col.v !== 1) fail('collision.json: v must be 1');
-  const list = Array.isArray(col.rects) ? col.rects : [];
-  const names = new Set();
-  for (const r of list) {
-    const at = `collision.json[${r?.name ?? '?'}]`;
-    if (typeof r?.name !== 'string' || !r.name) fail(`${at}: missing name`);
-    else if (names.has(r.name)) fail(`${at}: duplicate name`);
-    else names.add(r.name);
-    if (![r?.x1, r?.y1, r?.x2, r?.y2].every(isNum)) {
-      fail(`${at}: x1,y1,x2,y2 must be numbers`);
-      continue;
-    }
-    if (r.x1 >= r.x2 || r.y1 >= r.y2) fail(`${at}: needs x1<x2 and y1<y2`);
-    if (r.x1 < 0 || r.y1 < 0 || r.x2 > map.width || r.y2 > map.height) {
-      fail(`${at}: outside the map (${map.width}x${map.height})`);
-    }
-  }
-}
-
 if (errors.length > 0) {
   for (const e of errors) console.error(`FAIL ${e}`);
   process.exit(1);
 }
-console.log(`validate-data: ${files.length} file(s) OK (map ${map.width}x${map.height}).`);
+console.log(
+  `validate-data: OK (${cols}x${rows} tiles of ${tileSize}px = ${mapW}x${mapH}, ${tiles.length} tile types).`,
+);

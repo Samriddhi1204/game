@@ -47,22 +47,24 @@ Open the game with `?debug=1` (for example `https://<you>.github.io/game/?debug=
 a separate chunk and is never downloaded in normal play.
 
 1. Tap **Edit** to switch from playing to editing. Tap it again to go back to walking.
-2. Tools: **Pan** (drag the map), **Select/Move** (drag a hotspot or NPC, drag a rect, drag a
-   white corner square to resize a rect, drag the square on a hotspot circle's right edge to change
-   its radius; dragging empty ground pans), **Draw rect** (drag on empty map to add a collision
-   rect), **Delete** (removes the selected rect). **-**, **+** and **Fit** zoom; **Overlay** shows or hides
-   the shapes.
+2. Tools: **Pan** (drag the map), **Hotspots** (drag a hotspot or NPC; drag the square on its
+   circle's right edge to change its radius), **Paint** (pick a tile from the palette at the bottom
+   right, then drag over the map; **Brush** cycles 1x1, 2x2, 3x3), **Fill rect** (drag a rectangle
+   to fill it with the selected tile), **Pick** (tap a tile to copy it into the brush), **Undo**.
+   **-**, **+** and **Fit** zoom, **Grid** shows tile lines, **Blocked** tints the tiles you cannot
+   walk on (red tint).
 3. Leave Edit mode and walk around: your changes apply immediately, so you can test them.
-4. Tap **Export**. It copies both files to the clipboard, downloads `hotspots.json` and
-   `collision.json`, and shows both in a panel with Copy and Download buttons in case the browser
-   blocks one of them. Replace `src/data/hotspots.json` and `src/data/collision.json` with them
+4. Tap **Export**. It copies both files to the clipboard, downloads `tilemap.json` and
+   `hotspots.json`, and shows both in a panel with Copy and Download buttons in case the browser
+   blocks one of them. Replace `src/data/tilemap.json` and `src/data/hotspots.json` with them
    (or paste them to me) and commit.
 5. Edits are kept in this browser's localStorage so an accidental reload does not lose them.
    **Reset layout** clears them. The info box shows player position, FPS, frame time and object
    count.
 
-`npm test` checks that the spawn is on free ground and every interactive hotspot is reachable from
-it, so a bad export fails CI instead of walling something off.
+`npm test` checks that the spawn is on a walkable tile, every interactive hotspot is on a walkable
+tile reachable from it, and no stray walkable tile is cut off, so a bad export fails CI instead of
+walling something off.
 
 ## Rendering quality
 
@@ -87,9 +89,9 @@ One-time setup for the live link: merge to `main`, then in the repo go to
 src/core/    Pure TypeScript: no Phaser, no DOM, no Math.random (enforced by ESLint)
              map/ = collision, camera, hotspots, data parsing
 src/game/    Phaser layer: scenes, error handling, portrait pause
-src/data/    JSON content: hotspots.json, collision.json (more per phase)
-assets/      map.webp
-scripts/     validate-data, check-size-budget
+src/data/    JSON content: tiles.json (legend), tilemap.json (the map), hotspots.json (more per phase)
+assets/      tiles/tileset.png (map tiles); map.webp is the old painted map, kept as a reference only
+scripts/     validate-data, check-size-budget, generate-tileset
 tests/       unit/ (Vitest), e2e/ (Playwright)
 ```
 
@@ -97,9 +99,19 @@ Content (lines, names, numbers) will live in `src/data/*.json`.
 
 ## Notes and deviations from the spec
 
-- **Map size:** the provided `assets/map.webp` is **2000 x 1342 px**, not the 2048 x 1374 the spec
-  says. The file is unchanged. The spec's placeholder coordinates were scaled by 0.9766 into
-  `hotspots.json` and `collision.json` as a starting point; re-place them in the debug editor.
+- **Tile map instead of a painted picture.** You asked for a tiled map where the character stays
+  on the road, so spec section 12 changed in v2.2. The map is 64 x 42 tiles of 32 px
+  (2048 x 1344 px). `src/data/tilemap.json` is the layout: one string per row, one character per
+  tile, with the legend in `src/data/tiles.json` (which tile is walkable, its swatch colour). The
+  first layout was traced from your painted map.
+- **Walkable tiles:** roads (plain and dashed), kerb paths, the canteen plaza, the running track and
+  the underpass. Everything else blocks.
+- **Changing the look:** the tile pictures are in `assets/tiles/tileset.png`, 32 px tiles with a 1 px
+  margin, 2 px spacing and 1 px extruded edges (this stops seams on phones). The Nth entry in
+  `tiles.json` is the Nth picture, left to right, top to bottom. Paint over the PNG in any image
+  editor, or replace it with the same layout. `node scripts/generate-tileset.mjs` redraws the
+  placeholder art. To add a tile type, add it to `tiles.json`, add its picture to the sheet, and use
+  its character in `tilemap.json` (or paint it in the debug editor).
 - **Phaser 3.90** (`~3.90.0`) is pinned because the npm default is now Phaser 4.
 - Portrait pause uses `game.pause()` and `game.resume()` driven by `matchMedia`. The app mirrors
   state to `data-scene`, `data-paused` and `data-load-error` on `<html>` for e2e tests.
