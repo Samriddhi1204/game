@@ -1,6 +1,6 @@
 import { SAVE_BACKUP_KEY, SAVE_KEY } from '../core/save/keys';
 
-export type SceneLabel = 'Boot' | 'Preload' | 'TapToStart' | 'Map' | 'Error' | 'DomError';
+export type SceneLabel = 'Boot' | 'Preload' | 'TapToStart' | 'Map' | 'Fight' | 'Error' | 'DomError';
 
 /** Mirror the active scene onto <html> so e2e tests can read it. */
 export function setSceneLabel(label: SceneLabel): void {

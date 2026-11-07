@@ -4,6 +4,7 @@ import { installErrorHandlers, watchWebGLContext } from './game/errors';
 import { watchOrientation } from './game/portrait';
 import { BootScene } from './game/scenes/BootScene';
 import { ErrorScene } from './game/scenes/ErrorScene';
+import { FightScene } from './game/scenes/FightScene';
 import { MapScene } from './game/scenes/MapScene';
 import { PreloadScene } from './game/scenes/PreloadScene';
 import { TapToStartScene } from './game/scenes/TapToStartScene';
@@ -26,7 +27,7 @@ game = new Phaser.Game({
     width: GAME_WIDTH * RENDER_SCALE,
     height: GAME_HEIGHT * RENDER_SCALE,
   },
-  scene: [BootScene, PreloadScene, TapToStartScene, MapScene, ErrorScene],
+  scene: [BootScene, PreloadScene, TapToStartScene, MapScene, FightScene, ErrorScene],
 });
 
 watchWebGLContext(game);

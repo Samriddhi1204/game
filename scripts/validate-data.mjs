@@ -135,6 +135,41 @@ if (hs) {
     fail('hotspots.json: need exactly one spawn');
 }
 
+// ---- combat.json (the full range checks live in parseCombat and its unit test; these are the CI gate)
+const combat = readJson('combat.json');
+if (combat) {
+  if (combat.v !== 1) fail('combat.json: v must be 1');
+  const inRange = (label, v, min, max) => {
+    if (!isNum(v) || v < min || v > max)
+      fail(`combat.json: ${label} must be a number ${min}..${max} (got ${v})`);
+  };
+  inRange('maxHp', combat.maxHp, 1, 1000);
+  inRange('inputBuffer', combat.inputBuffer, 0, 30);
+  inRange('block.reduction', combat.block?.reduction, 0, 1);
+  inRange('dodge.distance', combat.dodge?.distance, 0, 400);
+  if (!['toward', 'hold'].includes(combat.heavyScheme))
+    fail('combat.json: heavyScheme must be "toward" or "hold"');
+  for (const [who, actions] of [
+    ['actions', combat.actions],
+    ['dummy.actions', combat.dummy?.actions],
+  ]) {
+    for (const kind of ['punch', 'heavy', 'special']) {
+      const a = actions?.[kind];
+      if (!a) {
+        fail(`combat.json: ${who}.${kind} is missing`);
+        continue;
+      }
+      inRange(`${who}.${kind}.startup`, a.startup, 1, 120);
+      inRange(`${who}.${kind}.damage`, a.damage, 0, 100);
+      // Fairness (spec section 10): a blockable attack the dummy throws needs a 20+ frame telegraph.
+      if (who === 'dummy.actions' && a.startup < 20)
+        fail(
+          `combat.json: dummy.actions.${kind}.startup is ${a.startup}, below the 20-frame telegraph minimum`,
+        );
+    }
+  }
+}
+
 if (errors.length > 0) {
   for (const e of errors) console.error(`FAIL ${e}`);
   process.exit(1);

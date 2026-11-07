@@ -19,6 +19,16 @@ in the spec; suggest them instead.
   real phone.
 - No real person's name or likeness (except Tiwari ji, affectionately). No generated art.
 
+## Fight simulation rules
+
+- `src/core/sim` is deterministic: fixed 60 Hz steps, seeded RNG only, state mutated in place, no
+  allocation per step. Same seed + same inputs must give the same `Sim.hash()`.
+- Rendering reads sim state after a step and may interpolate; it never writes to it.
+- Every number comes from `src/data/combat.json` (range-checked by `parseCombat`).
+- Fairness limits are enforced in the sim and tested: nothing may keep a fighter unable to act for
+  more than 60 frames in a row (hitstop included); a blockable attack's windup is at least 20 frames.
+- New fighter states must be added to the transition table in `core/sim/states.ts` with a test.
+
 ## Gates (all must pass before a phase is done)
 
 `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run validate-data`,

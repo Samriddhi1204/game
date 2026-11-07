@@ -1,40 +1,6 @@
 import { HOTSPOT_KINDS, type HotspotDef, type HotspotKind } from './hotspots';
+import { bool, list, num, optNum, optStr, rec, str } from '../guards';
 import { TileGrid, type TileDef } from './tiles';
-
-function rec(v: unknown, path: string): Record<string, unknown> {
-  if (typeof v !== 'object' || v === null || Array.isArray(v)) {
-    throw new Error(`${path}: expected an object`);
-  }
-  return v as Record<string, unknown>;
-}
-
-function num(o: Record<string, unknown>, key: string, path: string): number {
-  const v = o[key];
-  if (typeof v !== 'number' || !Number.isFinite(v)) {
-    throw new Error(`${path}.${key}: expected a number`);
-  }
-  return v;
-}
-
-function str(o: Record<string, unknown>, key: string, path: string): string {
-  const v = o[key];
-  if (typeof v !== 'string' || v === '') throw new Error(`${path}.${key}: expected a string`);
-  return v;
-}
-
-function optStr(o: Record<string, unknown>, key: string, path: string): string | undefined {
-  return o[key] === undefined ? undefined : str(o, key, path);
-}
-
-function optNum(o: Record<string, unknown>, key: string, path: string): number | undefined {
-  return o[key] === undefined ? undefined : num(o, key, path);
-}
-
-function list(o: Record<string, unknown>, key: string, path: string): unknown[] {
-  const v = o[key];
-  if (!Array.isArray(v)) throw new Error(`${path}.${key}: expected an array`);
-  return v as unknown[];
-}
 
 /** Parse and validate hotspots.json. Returns fresh, mutable objects. */
 export function parseHotspots(raw: unknown): HotspotDef[] {
@@ -65,12 +31,6 @@ export function parseHotspots(raw: unknown): HotspotDef[] {
     };
     return def;
   });
-}
-
-function bool(o: Record<string, unknown>, key: string, path: string): boolean {
-  const v = o[key];
-  if (typeof v !== 'boolean') throw new Error(`${path}.${key}: expected true or false`);
-  return v;
 }
 
 /** Parse and validate tiles.json (the tile legend). */

@@ -6,6 +6,16 @@ export class Rng {
     this.state = seed >>> 0;
   }
 
+  /** Restart the sequence from a seed. */
+  reseed(seed: number): void {
+    this.state = seed >>> 0;
+  }
+
+  /** Current internal state, for hashing a simulation. */
+  getState(): number {
+    return this.state;
+  }
+
   /** Float in [0, 1). */
   next(): number {
     this.state = (this.state + 0x6d2b79f5) >>> 0;

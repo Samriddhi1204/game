@@ -76,6 +76,12 @@ export class HotspotTracker {
     }
   }
 
+  /** Keep a hotspot quiet until the player leaves its radius (e.g. returning from its fight). */
+  markConsumed(id: string): void {
+    const i = this.defs.findIndex((d) => d.id === id);
+    if (i >= 0) this.consumed[i] = true;
+  }
+
   /** Fire the active hotspot. Returns it only if it is ready; locked or conquered return null. */
   trigger(): HotspotDef | null {
     const h = this.active;

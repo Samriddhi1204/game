@@ -1,11 +1,12 @@
 import type Phaser from 'phaser';
 import { addText } from '../gfx';
+import type { TouchButton } from './TouchButton';
 
 /**
  * A button drawn with Phaser but hit-tested by us in logical coordinates, so the input layer can
  * decide which finger belongs to a button and which to the joystick.
  */
-export class HitButton {
+export class HitButton implements TouchButton {
   readonly container: Phaser.GameObjects.Container;
   enabled = true;
   private readonly bg: Phaser.GameObjects.Graphics;

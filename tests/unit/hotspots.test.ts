@@ -55,6 +55,16 @@ describe('HotspotTracker', () => {
     expect(t.trigger()?.id).toBe('a');
   });
 
+  it('stays quiet after markConsumed until the player leaves and returns', () => {
+    const t = new HotspotTracker(defs);
+    t.markConsumed('a');
+    t.update(60, 100, ctx()); // inside 'a' only
+    expect(t.active).toBeNull();
+    t.update(400, 400, ctx());
+    t.update(60, 100, ctx());
+    expect(t.active?.id).toBe('a');
+  });
+
   it('shows a locked hotspot but refuses to trigger it', () => {
     const t = new HotspotTracker(defs);
     t.update(500, 500, ctx(4));

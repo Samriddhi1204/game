@@ -57,8 +57,16 @@ export class MapScene extends Phaser.Scene {
   private firstFrame = true;
   private detachEditor: (() => void) | null = null;
 
+  private startPos: Vec2 | undefined;
+  private consumedId: string | undefined;
+
   constructor() {
     super('Map');
+  }
+
+  init(data: { pos?: Vec2; consumedId?: string }): void {
+    this.startPos = data.pos;
+    this.consumedId = data.consumedId;
   }
 
   create(): void {
@@ -85,7 +93,9 @@ export class MapScene extends Phaser.Scene {
 
     const ground = this.buildGround(grid);
     const spawn = findSpawn(hotspots);
-    const player: Vec2 = { x: spawn.x, y: spawn.y };
+    const player: Vec2 = this.startPos
+      ? { x: this.startPos.x, y: this.startPos.y }
+      : { x: spawn.x, y: spawn.y };
     const view: Vec2 = { x: 0, y: 0 };
     this.host = {
       scene: this,
@@ -108,6 +118,7 @@ export class MapScene extends Phaser.Scene {
       },
     };
     this.tracker = new HotspotTracker(hotspots);
+    if (this.consumedId) this.tracker.markConsumed(this.consumedId);
 
     // World: one tile layer for the ground, built from the grid.
     worldLayer.add(ground);
@@ -336,6 +347,15 @@ export class MapScene extends Phaser.Scene {
   private onInteract(h: HotspotDef): void {
     this.actionCount += 1;
     this.lastAction = h.id;
+    if (h.kind === 'section') {
+      // Phase 2: every section starts the training fight. Phase 3 picks the section's professor.
+      this.scene.start('Fight', {
+        hotspotId: h.id,
+        label: h.label,
+        returnPos: { x: this.host.player.x, y: this.host.player.y },
+      });
+      return;
+    }
     this.showToast(`${h.action ?? ''}: ${h.label} (coming in a later phase)`);
   }
 

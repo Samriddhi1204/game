@@ -93,3 +93,42 @@ export async function waitForPrompt(page: Page, key: string): Promise<void> {
     timeout: 20_000,
   });
 }
+
+/** Map a logical (960x540) point to page coordinates, for mouse and touch taps on the canvas. */
+export async function logicalToPage(
+  page: Page,
+  lx: number,
+  ly: number,
+): Promise<{ x: number; y: number }> {
+  const box = await page.locator('#game canvas').boundingBox();
+  if (!box) throw new Error('canvas has no bounding box');
+  return { x: box.x + (box.width * lx) / 960, y: box.y + (box.height * ly) / 540 };
+}
+
+/** From the spawn, walk to the Academic Building hotspot and press Challenge with the keyboard. */
+export async function startFightWithKeyboard(page: Page, query = '?e2e=1'): Promise<void> {
+  await startGame(page, query);
+  await page.keyboard.down('d');
+  await waitForPrompt(page, 'academic_building:ready');
+  await page.keyboard.up('d');
+  await page.keyboard.press('e');
+  await page.locator('html[data-scene="Fight"]').waitFor();
+  await page.waitForFunction(() => document.documentElement.dataset['fightFrame'] !== undefined);
+}
+
+export const fightNum = async (page: Page, key: string): Promise<number> =>
+  Number((await page.locator('html').getAttribute(`data-fight-${key}`)) ?? 'NaN');
+
+/** Walk toward the dummy until a punch can reach, then stop. */
+export async function closeIn(page: Page): Promise<void> {
+  await page.keyboard.down('d');
+  await page.waitForFunction(
+    () => {
+      const d = document.documentElement.dataset;
+      return Number(d['fightEnemyX']) - Number(d['fightPlayerX']) < 100;
+    },
+    undefined,
+    { polling: 'raf', timeout: 20_000 },
+  );
+  await page.keyboard.up('d');
+}

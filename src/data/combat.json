@@ -1,0 +1,213 @@
+{
+  "v": 1,
+  "arena": {
+    "width": 960,
+    "floorY": 430,
+    "wallLeft": 48,
+    "wallRight": 912,
+    "color": "#1d2b2a"
+  },
+  "start": {
+    "playerX": 330,
+    "enemyX": 630
+  },
+  "hurtbox": {
+    "x": -22,
+    "y": -120,
+    "w": 44,
+    "h": 120
+  },
+  "pushWidth": 44,
+  "inputBuffer": 6,
+  "heavyScheme": "toward",
+  "holdFrames": 12,
+  "stickThreshold": 0.5,
+  "maxHp": 100,
+  "maxStamina": 100,
+  "maxMeter": 100,
+  "staminaRegenPerSec": 25,
+  "staminaRegenDelay": 30,
+  "moveSpeed": 3.2,
+  "chainMax": 3,
+  "chainCancelFrames": 8,
+  "knockdownFrames": 45,
+  "maxDisabledStreak": 60,
+  "blockHitstop": 3,
+  "block": {
+    "startup": 2,
+    "recovery": 4,
+    "reduction": 0.8
+  },
+  "dodge": {
+    "startup": 2,
+    "total": 20,
+    "invulnFrom": 3,
+    "invulnTo": 13,
+    "moveFrom": 3,
+    "moveTo": 16,
+    "distance": 140,
+    "cost": 30
+  },
+  "special": {
+    "restoreStamina": 30
+  },
+  "statuses": {
+    "slow": {
+      "frames": 120,
+      "value": 0.5
+    },
+    "dodgeShort": {
+      "frames": 180,
+      "value": 0.5
+    },
+    "stun": {
+      "frames": 30,
+      "value": 0
+    },
+    "specialLock": {
+      "frames": 180,
+      "value": 0
+    },
+    "meterDrain": {
+      "frames": 180,
+      "value": 20
+    },
+    "blockDisabled": {
+      "frames": 300,
+      "value": 0
+    },
+    "enraged": {
+      "frames": 300,
+      "value": 1.5
+    }
+  },
+  "actions": {
+    "punch": {
+      "startup": 5,
+      "active": 3,
+      "recovery": 9,
+      "damage": 6,
+      "hitstun": 14,
+      "blockstun": 8,
+      "meterGain": 6,
+      "meterOnHurt": 4,
+      "knockback": 6,
+      "hitstop": 4,
+      "knockdown": false,
+      "blockBreak": 0,
+      "hitbox": {
+        "x": 18,
+        "y": -95,
+        "w": 72,
+        "h": 34
+      }
+    },
+    "heavy": {
+      "startup": 16,
+      "active": 4,
+      "recovery": 24,
+      "damage": 18,
+      "hitstun": 24,
+      "blockstun": 14,
+      "meterGain": 12,
+      "meterOnHurt": 8,
+      "knockback": 36,
+      "hitstop": 8,
+      "knockdown": false,
+      "blockBreak": 0,
+      "hitbox": {
+        "x": 18,
+        "y": -105,
+        "w": 84,
+        "h": 56
+      }
+    },
+    "special": {
+      "startup": 12,
+      "active": 6,
+      "recovery": 30,
+      "damage": 35,
+      "hitstun": 30,
+      "blockstun": 12,
+      "meterGain": 0,
+      "meterOnHurt": 12,
+      "knockback": 80,
+      "hitstop": 10,
+      "knockdown": true,
+      "blockBreak": 20,
+      "hitbox": {
+        "x": 10,
+        "y": -115,
+        "w": 130,
+        "h": 115
+      }
+    }
+  },
+  "dummy": {
+    "hp": 100,
+    "reviveFrames": 90,
+    "attackRange": 95,
+    "actions": {
+      "punch": {
+        "startup": 24,
+        "active": 3,
+        "recovery": 16,
+        "damage": 6,
+        "hitstun": 14,
+        "blockstun": 8,
+        "meterGain": 0,
+        "meterOnHurt": 4,
+        "knockback": 6,
+        "hitstop": 4,
+        "knockdown": false,
+        "blockBreak": 0,
+        "hitbox": {
+          "x": 18,
+          "y": -95,
+          "w": 72,
+          "h": 34
+        }
+      },
+      "heavy": {
+        "startup": 32,
+        "active": 4,
+        "recovery": 30,
+        "damage": 18,
+        "hitstun": 24,
+        "blockstun": 14,
+        "meterGain": 0,
+        "meterOnHurt": 8,
+        "knockback": 36,
+        "hitstop": 8,
+        "knockdown": false,
+        "blockBreak": 0,
+        "hitbox": {
+          "x": 18,
+          "y": -105,
+          "w": 84,
+          "h": 56
+        }
+      },
+      "special": {
+        "startup": 30,
+        "active": 6,
+        "recovery": 30,
+        "damage": 35,
+        "hitstun": 30,
+        "blockstun": 12,
+        "meterGain": 0,
+        "meterOnHurt": 12,
+        "knockback": 80,
+        "hitstop": 10,
+        "knockdown": true,
+        "blockBreak": 20,
+        "hitbox": {
+          "x": 10,
+          "y": -115,
+          "w": 130,
+          "h": 115
+        }
+      }
+    }
+  }
+}

@@ -49,18 +49,22 @@ if (!tilesetFile) {
 }
 const tilesetBytes = statSync(join(assetsDir, tilesetFile)).size;
 
-// The debug editor must stay out of the initial bundle (it is lazy-loaded with ?debug=1).
-const leaked = [...jsRefs].filter((ref) =>
-  readFileSync(resolve(ref), 'utf8').includes('MAP_EDITOR_MARKER'),
-);
+// Debug tools are lazy-loaded with ?debug=1 and must stay out of the initial bundle...
+const MARKERS = ['MAP_EDITOR_MARKER', 'FIGHT_DEBUG_MARKER'];
+const leaked = [...jsRefs].filter((ref) => {
+  const text = readFileSync(resolve(ref), 'utf8');
+  return MARKERS.some((m) => text.includes(m));
+});
 
-// ...and it must really exist as its own chunk, otherwise the check above proves nothing.
-const lazyChunk = readdirSync(join(dist, 'assets')).find(
-  (f) =>
-    f.endsWith('.js') &&
-    !jsRefs.has(`./assets/${f}`) &&
-    !jsRefs.has(`/assets/${f}`) &&
-    readFileSync(join(dist, 'assets', f), 'utf8').includes('MAP_EDITOR_MARKER'),
+// ...and each must really exist as its own chunk, otherwise the check above proves nothing.
+const lazyChunks = MARKERS.map((marker) =>
+  readdirSync(join(dist, 'assets')).find(
+    (f) =>
+      f.endsWith('.js') &&
+      !jsRefs.has(`./assets/${f}`) &&
+      !jsRefs.has(`/assets/${f}`) &&
+      readFileSync(join(dist, 'assets', f), 'utf8').includes(marker),
+  ),
 );
 
 const transfer = htmlGzip + jsGzip + cssGzip + tilesetBytes;
@@ -73,12 +77,13 @@ const failures = [];
 if (jsGzip > LIMITS.initialJsGzip) failures.push('initial JS over budget');
 if (transfer > LIMITS.initialTransfer) failures.push('initial transfer over budget');
 if (tilesetBytes > LIMITS.tileset) failures.push('tileset over budget');
-if (!lazyChunk) failures.push('debug editor chunk not found (marker missing from lazy chunk)');
+if (lazyChunks.some((c) => !c))
+  failures.push('a debug chunk was not found (marker missing from every lazy chunk)');
 if (leaked.length > 0)
   failures.push(`debug editor leaked into the initial bundle (${leaked.join(', ')})`);
 if (failures.length > 0) {
   console.error(`FAIL: ${failures.join(', ')}`);
   process.exit(1);
 }
-console.log(`Debug editor is lazy-loaded (${lazyChunk}).`);
+console.log(`Debug tools are lazy-loaded (${lazyChunks.join(', ')}).`);
 console.log('Size budget OK.');

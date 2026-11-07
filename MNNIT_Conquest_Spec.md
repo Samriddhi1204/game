@@ -1,4 +1,4 @@
-# MNNIT Conquest — Build Spec v2.2
+# MNNIT Conquest — Build Spec v2.3
 
 > **For the coding assistant:** This file is the source of truth. Read all of it before writing any code. If something here conflicts with what you would normally do, follow this file and tell me. Work one phase at a time (section 20) and stop after each phase.
 
@@ -231,6 +231,17 @@ Side-view 1v1. One arena per section (solid colours first, themed backgrounds la
   - Status effects can never stack into a state where the player cannot act for more than 60 frames in a row.
 - **Weakness system:** each boss has one weakness from `counter_after_dodge`, `heavy_in_recovery`, `punch_after_block`, `special_in_phase_change`, `chain_after_attack` (a full 3-hit chain right after a named attack). Exploiting it = ×1.5 damage + "Weak spot!" cue. Hint shown on the loss screen after the first defeat, or from the start with `revealWeakness`.
 - Difficulty is data only. **All five section bosses should be roughly equal in difficulty**, hard in different ways (free order).
+
+### Phase 2 decisions (v2.3)
+Where the spec was silent, Phase 2 uses these. All are data in `combat.json` or one-line changes:
+- A fighter is **knocked down** (45 frames, untouchable) by a special; otherwise hits cause hitstun.
+- Taking a hit gives meter too: punch +4, heavy +8, special +12. A **blocked** hit gives half of what a clean hit gives, to both sides.
+- Block's 2-frame startup does not block; a hit during it lands in full. A special that is blocked still breaks guard (20 frames of `blockDisabled`).
+- **Dodge direction** is the stick direction if it is held, else away from the opponent. A dodge can pass through the opponent during its i-frames.
+- **Hitstop counts as time the fighter cannot act.** The sim stops any chain of hits, stuns and blockstun from holding a fighter longer than 60 frames in a row: a hit that would not fit in the remaining budget still damages but frees them, and carries no status. This is tested with a hostile re-hit loop.
+- LITE LO costs the whole meter at the moment it starts, restores 30 stamina then and clears every debuff then. It cannot be used while `specialLock` is active.
+- The training dummy uses its own slower frame data (24+ frame windups) so every attack has a visible telegraph.
+- The first fight's icon hints are remembered per page load until the save system (Phase 4) can store the flag.
 
 ## 11. Boss roster (defaults, all in `fighters.json`)
 

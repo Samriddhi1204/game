@@ -3,9 +3,10 @@
 A small, funny browser game set on the MNNIT campus. You play a fucchha. The full design is in
 [`MNNIT_Conquest_Spec.md`](./MNNIT_Conquest_Spec.md), which is the source of truth.
 
-**Status: Phase 1 (map and input).** Walk the campus map on phone or laptop, with a floating
-joystick, WASD/arrows, collision, a following camera, hotspots with a context button, and a
-`?debug=1` editor to place hotspots and collision by eye.
+**Status: Phase 2 (combat core).** Walk the tile map, press Challenge at any section, and fight a
+training dummy: punch chains, heavy, block, dodge, stamina, the LITE LO special, status effects and
+a CGPA HUD. The fight simulation is pure TypeScript and deterministic. Phase 3 puts the first real
+boss in the ring.
 
 **Rule: phone-first quality.** The game must be interactive, smooth and high quality on a phone
 browser as well as on desktop. See spec section 1 and `CLAUDE.md`.
@@ -40,6 +41,48 @@ normal machine run `npx playwright install chromium` once.
 | Walk                                                  | Floating joystick: touch anywhere in the left half             | WASD / arrows |
 | Context button (Baat karo, Challenge, Tiwari ji, ...) | Button that appears bottom-right near a hotspot                | E / Enter     |
 | Fullscreen                                            | Corner button (hidden where the browser has no Fullscreen API) |               |
+
+## Fighting (Phase 2)
+
+Walk to any section marker (for example the Academic Building) and press the **Challenge** button.
+You fight a training dummy. Health is CGPA (10.0 at the start; a 6-damage punch shows as -0.6 CGPA).
+
+| Action                | Touch                                            | Keyboard        |
+| --------------------- | ------------------------------------------------ | --------------- |
+| Move                  | Floating joystick, left half of the screen       | WASD / arrows   |
+| Block                 | Hold the joystick **away** from the dummy        | Hold away, or L |
+| Punch (chain up to 3) | Attack button (fist)                             | J               |
+| Heavy                 | Joystick **toward** the dummy + Attack           | K               |
+| Dodge                 | Dodge button (arrow)                             | Space           |
+| LITE LO special       | Star button, appears only when the meter is full | I               |
+| Pause                 | Pause icon, top right                            | Esc             |
+
+- **Dummy button** (top centre): cycles Idle, Block, Attack (slow telegraphed punches and heavies, each
+  with a "!" while it winds up) and Debuff (every hit applies a different status, so you can see each
+  icon and watch LITE LO clear them).
+- **Status icons** under the CGPA bars: S slow, D short dodge, ! stun, L special locked, M meter drain,
+  B block disabled, E enraged. They blink in the last second.
+- If you are knocked out, tap **Lite lo, phir se** to restart. The dummy gets back up on its own.
+- **First fight only** (touch): small icons fade in near the controls showing "joystick toward + Attack =
+  heavy" and "joystick away = block".
+
+### If the "toward = heavy, away = block" scheme feels bad
+
+The spec flags this as a feel risk. Open `src/data/combat.json` and change `"heavyScheme": "toward"`
+to `"hold"`. Then a quick tap on Attack is a punch (fired on release) and holding Attack for
+`holdFrames` (12) frames is a heavy. Block stays "joystick away".
+
+### Tuning
+
+Every number lives in `src/data/combat.json`: frame data, damage, hitstun, knockback, stamina, meter,
+dodge frames and distance, block reduction, status defaults, the dummy's slower attacks. The file is
+range-checked on load and by a unit test, so a typo gives a clear error instead of a broken fight.
+
+### Fight debug (`?debug=1`)
+
+A panel appears with **Hitboxes** (cyan = hurtbox, yellow = attack windup, red = active hitbox),
+**+Meter**, **Heal**, **0 stamina**, **Kill dummy** and **Dummy mode**, plus a line showing the frame, hitstop
+and the state hash. It is a separate download and never loaded in normal play.
 
 ## Debug editor (`?debug=1`)
 
@@ -88,8 +131,9 @@ One-time setup for the live link: merge to `main`, then in the repo go to
 ```
 src/core/    Pure TypeScript: no Phaser, no DOM, no Math.random (enforced by ESLint)
              map/ = collision, camera, hotspots, data parsing
+             sim/ = the fight simulation (state machine, hits, statuses), ai/ = training dummy
 src/game/    Phaser layer: scenes, error handling, portrait pause
-src/data/    JSON content: tiles.json (legend), tilemap.json (the map), hotspots.json (more per phase)
+src/data/    JSON content: tiles.json, tilemap.json, hotspots.json, combat.json (more per phase)
 assets/      tiles/tileset.png (map tiles); map.webp is the old painted map, kept as a reference only
 scripts/     validate-data, check-size-budget, generate-tileset
 tests/       unit/ (Vitest), e2e/ (Playwright)
